@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "agent-wiki": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "agent-wiki",
+        "serve"
+      ]
+    }
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Payment & Subscription API",
+    "description": "Comprehensive billing API for managing customers, subscriptions, and one-off checkout sessions.",
+    "version": "2.4.0"
+  },
+  "paths": {
+    "/v2/checkout/sessions": {
+      "post": {
+        "summary": "Create Checkout Session",
+        "description": "Initializes an interactive checkout session for processing customer payments.",
+        "operationId": "createCheckoutSession",
+        "tags": ["Checkout", "Billing"],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "Unique UUID to prevent double-charging on network retries.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["customer_id", "currency", "line_items"],
+                "properties": {
+                  "customer_id": {
+                    "type": "string",
+                    "description": "The target customer identifier (must start with cus_)."
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": ["usd", "eur", "gbp"],
+                    "description": "Three-letter ISO currency code."
+                  },
+                  "line_items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["price_id", "quantity"],
+                      "properties": {
+                        "price_id": { "type": "string" },
+                        "quantity": { "type": "integer", "minimum": 1 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session created successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "url": { "type": "string" },
+                    "status": { "type": "string", "enum": ["open", "complete", "expired"] }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameters or currency mismatch."
+          },
+          "409": {
+            "description": "Idempotency conflict detected. A request with this key is currently in-flight."
+          },
+          "429": {
+            "description": "Too many requests. Rate limit exceeded."
+          }
+        }
+      }
+    },
+    "/v2/customers/{id}": {
+      "get": {
+        "summary": "Retrieve Customer",
+        "description": "Fetches account status and stored payment methods for a customer.",
+        "operationId": "getCustomer",
+        "tags": ["Customer", "Billing"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Customer identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "email": { "type": "string" },
+                    "delinquent": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Customer not found"
+          }
+        }
+      }
+    }
+  }
+}
