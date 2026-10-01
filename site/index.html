@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentWiki — Deterministic Knowledge Engine & Local MCP Server</title>
+  <meta name="description" content="Agent-native knowledge engine and local MCP server for Cursor and Claude Code. Turn chaotic markdown into an optimized, sub-400-token deterministic index.">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+  <!-- Typography: Geist and JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+          },
+          colors: {
+            canvas: '#09090b',
+            surface: '#121214',
+            surfaceElevated: '#18181b',
+            surfaceHover: '#202024',
+            hairline: '#27272a',
+            hairlineSubtle: '#1f1f23',
+            textPrimary: '#fafafa',
+            textSecondary: '#a1a1aa',
+            textMuted: '#71717a',
+          },
+          boxShadow: {
+            hairline: '0 0 0 1px rgba(255, 255, 255, 0.08)',
+            'hairline-active': '0 0 0 1px rgba(255, 255, 255, 0.2)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Emil Kowalski Animation Tokens */
+    :root {
+      --ease-out-snappy: cubic-bezier(0.23, 1, 0.32, 1);
+      --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    body {
+      background-color: #09090b;
+      color: #fafafa;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Custom Hairline Borders */
+    .border-hairline {
+      border: 1px solid #27272a;
+    }
+    .border-hairline-subtle {
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    /* Tactile Micro-Interactions */
+    .btn-tactile {
+      transition: transform 120ms var(--ease-out-snappy), background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+    }
+    .btn-tactile:active {
+      transform: scale(0.97);
+    }
+
+    /* Code Block Custom Styling */
+    pre, code {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Custom Subtle Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #09090b;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #27272a;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3f3f46;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-white selection:text-black">
+
+  <!-- ================= TOP NAVIGATION ================= -->
+  <header class="sticky top-0 z-50 w-full bg-[#09090b]/85 backdrop-blur-md border-b border-white/[0.08]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand & Wordmark -->
+      <a href="#" class="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 rounded-lg p-1">
+        <!-- Logo SVG -->
+        <div class="w-8 h-8 rounded-lg bg-[#09090b] border border-zinc-700/80 flex items-center justify-center p-0.5 transition-transform duration-150 group-hover:scale-105">
+          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 5.5L25 10.5L16 15.5L7 10.5Z" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M16 8L21 10.8L16 13.5L11 10.8Z" fill="#FFFFFF" fill-opacity="0.25"/>
+            <path d="M16 15.5V26.5" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M7 10.5V21.5L16 26.5L25 21.5V10.5" stroke="#FFFFFF" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M7 14.5L16 19.5L25 14.5" stroke="#A1A1AA" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 18.5L16 23.5L25 18.5" stroke="#71717A" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-[15px] tracking-tight text-white">AgentWiki</span>
+          <span class="text-[11px] font-mono px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-zinc-400">v0.1.0</span>
+        </div>
+      </a>
+
+      <!-- Desktop Navigation -->
+      <nav class="hidden lg:flex items-center gap-6 xl:gap-8 text-[13px] font-mono text-zinc-400">
+        <a href="#economics" class="hover:text-white transition-colors">Token Economics</a>
+        <a href="#how-it-works" class="hover:text-white transition-colors">How It Works</a>
+        <a href="#mcp-tools" class="hover:text-white transition-colors">MCP Tools</a>
+        <a href="#quickstart" class="hover:text-white transition-colors">Quickstart</a>
+        <a href="https://github.com/HamidCodedot/agentwiki" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Docs</a>
+      </nav>
+
+      <!-- Action Items -->
+      <div class="hidden lg:flex items-center gap-3">
+        <a href="https://github.com/HamidCodedot/agentwiki" target="_blank" rel="noopener noreferrer" class="btn-tactile h-9 px-3 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-zinc-300 hover:text-white text-xs font-mono flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+          </svg>
+          <span>GitHub</span>
+        </a>
+
+        <a href="#quickstart" class="btn-tactile h-9 px-4 rounded-lg bg-white text-black hover:bg-zinc-200 text-xs font-mono font-medium flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
+          <span>Get Started</span>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+      </div>
+
+      <!-- Mobile/Tablet Hamburger Button -->
+      <button id="mobileMenuBtn" type="button" aria-label="Toggle navigation menu" class="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg border border-white/10 bg-white/5 text-zinc-300 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
+        <svg id="hamburgerIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <svg id="closeIcon" class="hidden" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+    </div>
+
+    <!-- Mobile/Tablet Drawer / Menu -->
+    <div id="mobileDrawer" class="hidden lg:hidden border-b border-white/10 bg-[#0c0c0e] px-4 pt-3 pb-6 flex flex-col gap-4 font-mono text-sm">
+      <a href="#economics" class="py-2 text-zinc-300 hover:text-white border-b border-white/5 mobile-nav-link">Token Economics</a>
+      <a href="#how-it-works" class="py-2 text-zinc-300 hover:text-white border-b border-white/5 mobile-nav-link">How It Works</a>
+      <a href="#mcp-tools" class="py-2 text-zinc-300 hover:text-white border-b border-white/5 mobile-nav-link">MCP Tools</a>
+      <a href="#quickstart" class="py-2 text-zinc-300 hover:text-white border-b border-white/5 mobile-nav-link">Quickstart</a>
+      <div class="pt-2 flex flex-col gap-2">
+        <a href="https://github.com/HamidCodedot/agentwiki" target="_blank" rel="noopener noreferrer" class="btn-tactile h-11 w-full rounded-lg border border-white/10 bg-white/5 text-zinc-200 flex items-center justify-center gap-2">
+          <span>View on GitHub</span>
+        </a>
+        <a href="#quickstart" class="btn-tactile h-11 w-full rounded-lg bg-white text-black font-medium flex items-center justify-center gap-2 mobile-nav-link">
+          <span>Get Started</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= HERO SECTION ================= -->
+  <section class="relative pt-14 pb-18 md:pt-24 md:pb-28 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center text-center w-full min-w-0 overflow-hidden">
+    
+    <!-- Eyebrow Pill -->
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/[0.04] text-[10px] sm:text-[11px] font-mono text-zinc-300 mb-8 max-w-full">
+      <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse shrink-0"></span>
+      <span class="tracking-wide uppercase truncate sm:whitespace-normal">LOCAL MCP SERVER &amp; DETERMINISTIC CONTEXT ENGINE</span>
+    </div>
+
+    <!-- Main Headline -->
+    <h1 class="text-3xl sm:text-5xl md:text-6xl font-medium tracking-tight text-white max-w-4xl leading-[1.15]">
+      Deterministic Knowledge for AI Coding Agents.
+    </h1>
+
+    <!-- Subhead -->
+    <p class="mt-5 text-sm sm:text-lg md:text-xl text-zinc-400 max-w-2xl leading-relaxed font-normal">
+      Turn chaotic markdown and tribal codebase knowledge into a sub-400-token deterministic index for Cursor and Claude Code. Zero hallucinations. Sub-5ms retrieval.
+    </p>
+
+    <!-- Quickstart Execution Command Bar -->
+    <div class="mt-8 flex flex-col sm:flex-row items-center gap-3 w-full max-w-xl">
+      <!-- Terminal Command Copy Box -->
+      <div class="w-full sm:flex-1 h-12 rounded-lg border border-white/10 bg-[#121214] px-4 flex items-center justify-between font-mono text-xs text-zinc-300 select-all min-w-0">
+        <div class="flex items-center gap-2 truncate min-w-0">
+          <span class="text-zinc-500 shrink-0">$</span>
+          <span class="text-white font-medium truncate">npx @hamidshahid/agentwiki init</span>
+        </div>
+        <button id="heroCopyBtn" type="button" aria-label="Copy npx init command" class="btn-tactile ml-2 px-2.5 py-1 rounded border border-white/10 bg-white/5 hover:bg-white/10 text-[11px] text-zinc-300 hover:text-white flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
+          <svg id="heroCopyIcon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span id="heroCopyText">Copy</span>
+        </button>
+      </div>
+
+      <!-- Secondary Architecture Link Button -->
+      <a href="#how-it-works" class="btn-tactile w-full sm:w-auto h-12 px-5 rounded-lg border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-xs font-mono text-zinc-300 hover:text-white flex items-center justify-center gap-2 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400">
+        <span>How It Works</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="7" y1="17" x2="17" y2="7"></line>
+          <polyline points="7 7 17 7 17 17"></polyline>
+        </svg>
+      </a>
+    </div>
+
+    <!-- Live Obsidian Precision CLI Preview Card -->
+    <div class="mt-12 w-full max-w-3xl min-w-0 rounded-xl border border-white/10 bg-[#0d0d10] p-4 sm:p-6 text-left shadow-2xl relative overflow-hidden">
+      <!-- Card Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
+          <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
+          <span class="ml-2 font-mono text-[11px] text-zinc-500">agentwiki terminal session — stdio</span>
+        </div>
+        <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+          <span class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300">MCP ACTIVE</span>
+        </div>
+      </div>
+
+      <!-- Terminal Output Content (Obsidian Precision Style) -->
+      <div class="font-mono text-[11px] sm:text-[13px] leading-relaxed text-zinc-300 overflow-x-auto min-w-0 select-text pb-1">
+        <div class="text-zinc-500 mb-2">$ agentwiki status</div>
+        <div class="text-zinc-400 whitespace-pre">┌─ AGENTWIKI STATUS ────────────────────────────────────────────────────────┐</div>
+        <div class="text-zinc-300 whitespace-pre">│  Knowledge Root:   <span class="text-white">.agentwiki/</span>                                            │</div>
+        <div class="text-zinc-300 whitespace-pre">│  Indexed Files:    <span class="text-white font-medium">14 documents</span> (architecture, api, workflows)           │</div>
+        <div class="text-zinc-300 whitespace-pre">│  Index Footprint:  <span class="text-white">48.2 KB</span> (SQLite + JSON index)                         │</div>
+        <div class="text-zinc-300 whitespace-pre">│  Registered Tools: <span class="text-white font-medium">3 tools</span> (search, read, propose_diff)                 │</div>
+        <div class="text-zinc-300 whitespace-pre">│  Daemon Transport: <span class="text-white">stdio</span> (Cursor &amp; Claude Code compatible)              │</div>
+        <div class="text-zinc-400 whitespace-pre">├───────────────────────────────────────────────────────────────────────────┤</div>
+        <div class="text-zinc-300 whitespace-pre">│  <span class="text-white font-semibold">[ok]</span>   Knowledge index up to date (compiled in 12ms)                 │</div>
+        <div class="text-zinc-300 whitespace-pre">│  <span class="text-zinc-400 font-semibold">[mcp]</span>  Local stdio MCP server ready on port unix:stdio              │</div>
+        <div class="text-zinc-300 whitespace-pre">│  <span class="text-zinc-400 font-semibold">[tcr]</span>  Atomic test-commit-revert cycle verification active          │</div>
+        <div class="text-zinc-400 whitespace-pre">└───────────────────────────────────────────────────────────────────────────┘</div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ================= SECTION 1: TOKEN ECONOMICS & COMPRESSION ================= -->
+  <section id="economics" class="py-20 border-t border-white/[0.08] bg-[#0c0c0e]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <!-- Section Heading -->
+      <div class="flex flex-col items-center text-center max-w-3xl mx-auto mb-16">
+        <span class="font-mono text-[11px] uppercase tracking-widest text-zinc-400">TOKEN ECONOMICS</span>
+        <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight text-white">Radical Context Compression</h2>
+        <p class="mt-4 text-zinc-400 text-sm sm:text-base leading-relaxed">
+          LLM context windows degrade rapidly when flooded with raw markdown and entire documentation files. AgentWiki compiles and extracts only high-value semantic nodes.
+        </p>
+      </div>
+
+      <!-- Before / After Compression Comparison -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        
+        <!-- Left: Raw Unstructured Context (Before) -->
+        <div class="rounded-xl border border-white/10 bg-[#121214] p-6 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+              <span class="font-mono text-xs text-zinc-400 uppercase tracking-wide">RAW UNSTRUCTURED INGESTION</span>
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-400">Standard Practice</span>
+            </div>
+            
+            <div class="font-mono text-3xl text-white font-medium mb-1">
+              2,169 <span class="text-sm text-zinc-500 font-normal">tokens / query</span>
+            </div>
+            <p class="text-xs text-zinc-400 mb-6">Bloated context, prose filler, and redundant boilerplate injected into every prompt.</p>
+
+            <div class="rounded-lg border border-white/5 bg-[#09090b] p-3.5 font-mono text-[11px] leading-relaxed text-zinc-400 space-y-1 overflow-x-auto">
+              <div class="text-zinc-500"># Documentation Overview</div>
+              <div>This guide explains how authentication works in our system...</div>
+              <div>We support OAuth2, JWT, and API keys. Here is an explanation...</div>
+              <div>Lorem ipsum detailed background on legacy architecture v1...</div>
+              <div class="text-zinc-600">[+ 148 lines of prose, markdown headers, and unparsed text]</div>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-xs font-mono text-zinc-400">
+            <span>Query Latency: ~1,200ms</span>
+            <span class="text-zinc-400">Context Dilution High</span>
+          </div>
+        </div>
+
+        <!-- Right: AgentWiki Structured Schema (After) -->
+        <div class="rounded-xl border border-white/20 bg-[#141418] p-6 flex flex-col justify-between relative shadow-lg">
+          <div class="absolute -top-3 right-6 px-2.5 py-0.5 rounded-full bg-white text-black font-mono text-[10px] font-semibold tracking-wide uppercase">
+            82.3% Less Tokens
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
+              <span class="font-mono text-xs text-white uppercase tracking-wide">AGENTWIKI COMPILED SCHEMA</span>
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-white/10 text-white font-medium">Deterministic</span>
+            </div>
+            
+            <div class="font-mono text-3xl text-white font-medium mb-1">
+              384 <span class="text-sm text-zinc-400 font-normal">tokens / query</span>
+            </div>
+            <p class="text-xs text-zinc-400 mb-6">Exact typed entities, constraints, and deterministic function signatures only.</p>
+
+            <div class="rounded-lg border border-white/10 bg-[#09090b] p-3.5 font-mono text-[11px] leading-relaxed text-zinc-300 space-y-1 overflow-x-auto">
+              <div class="text-zinc-400">{</div>
+              <div class="pl-3"><span class="text-zinc-400">"entity":</span> <span class="text-white">"AuthStrategy"</span>,</div>
+              <div class="pl-3"><span class="text-zinc-400">"invariant":</span> <span class="text-white">"JWT stored in HttpOnly cookies only"</span>,</div>
+              <div class="pl-3"><span class="text-zinc-400">"guardrails":</span> [<span class="text-white">"No raw tokens in localStorage"</span>],</div>
+              <div class="pl-3"><span class="text-zinc-400">"endpoints":</span> [<span class="text-white">"/api/v1/auth/refresh"</span>, <span class="text-white">"/api/v1/auth/verify"</span>]</div>
+              <div class="text-zinc-400">}</div>
+            </div>
+          </div>
+
+          <div class="mt-6 pt-4 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+            <span class="text-zinc-300">Retrieval Latency: &lt;4ms</span>
+            <span class="text-white font-medium">Zero Hallucinations</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Compression Metrics Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto mt-8 font-mono">
+        <div class="p-4 rounded-lg border border-white/10 bg-[#121214] text-center">
+          <div class="text-2xl font-medium text-white">82.3%</div>
+          <div class="text-xs text-zinc-400 mt-1">Context Window Reduction</div>
+        </div>
+        <div class="p-4 rounded-lg border border-white/10 bg-[#121214] text-center">
+          <div class="text-2xl font-medium text-white">&lt; 5ms</div>
+          <div class="text-xs text-zinc-400 mt-1">SQLite FTS5 Query Speed</div>
+        </div>
+        <div class="p-4 rounded-lg border border-white/10 bg-[#121214] text-center">
+          <div class="text-2xl font-medium text-white">100%</div>
+          <div class="text-xs text-zinc-400 mt-1">Local &amp; Offline Stdio</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= SECTION 2: HOW IT WORKS ================= -->
+  <section id="how-it-works" class="py-20 border-t border-white/[0.08] bg-[#09090b]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <!-- Section Header -->
+      <div class="flex flex-col items-center text-center max-w-3xl mx-auto mb-16">
+        <span class="font-mono text-[11px] uppercase tracking-widest text-zinc-400">ARCHITECTURE</span>
+        <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight text-white">Engineered for Deterministic Execution</h2>
+        <p class="mt-4 text-zinc-400 text-sm sm:text-base leading-relaxed">
+          Three crisp mechanisms make AgentWiki the most reliable knowledge engine for autonomous coding agents.
+        </p>
+      </div>
+
+      <!-- 3 Pillar Feature Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        
+        <!-- Card 1: Compile -->
+        <div class="rounded-xl border border-white/10 bg-[#121214] p-6 sm:p-8 flex flex-col justify-between hover:border-white/20 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-6">
+              <span class="font-mono text-xs text-zinc-400 tracking-wider">01 / COMPILE</span>
+              <div class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 18 22 12 16 6"></polyline>
+                  <polyline points="8 6 2 12 8 18"></polyline>
+                </svg>
+              </div>
+            </div>
+            
+            <h3 class="text-xl font-medium text-white mb-2">Git-Native Knowledge Graph</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">
+              Store documentation in human-readable markdown inside <code class="text-white text-xs bg-white/5 px-1 py-0.5 rounded">.agentwiki/</code>. AgentWiki parses frontmatter, extracts relational links, and builds an optimized SQLite database in milliseconds.
+            </p>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-white/[0.08] font-mono text-[11px] text-zinc-400">
+            $ agentwiki compile &rarr; index.db
+          </div>
+        </div>
+
+        <!-- Card 2: Serve -->
+        <div class="rounded-xl border border-white/10 bg-[#121214] p-6 sm:p-8 flex flex-col justify-between hover:border-white/20 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-6">
+              <span class="font-mono text-xs text-zinc-400 tracking-wider">02 / SERVE</span>
+              <div class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                  <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                  <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                  <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                </svg>
+              </div>
+            </div>
+            
+            <h3 class="text-xl font-medium text-white mb-2">Zero-Config Local MCP Stdio</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">
+              Runs as a standard I/O process compliant with the Model Context Protocol. Seamlessly works with Cursor, Claude Code, and Windsurf without network overhead or cloud tokens.
+            </p>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-white/[0.08] font-mono text-[11px] text-zinc-400">
+            Transport: stdio / JSON-RPC 2.0
+          </div>
+        </div>
+
+        <!-- Card 3: Review -->
+        <div class="rounded-xl border border-white/10 bg-[#121214] p-6 sm:p-8 flex flex-col justify-between hover:border-white/20 transition-colors">
+          <div>
+            <div class="flex items-center justify-between mb-6">
+              <span class="font-mono text-xs text-zinc-400 tracking-wider">03 / REVIEW</span>
+              <div class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-zinc-300">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+              </div>
+            </div>
+            
+            <h3 class="text-xl font-medium text-white mb-2">Atomic Proposal Diffs</h3>
+            <p class="text-sm text-zinc-400 leading-relaxed">
+              When agents discover architecture updates, they submit proposals via <code class="text-white text-xs bg-white/5 px-1 py-0.5 rounded">agentwiki_propose_diff</code>. Review changes via the Obsidian CLI with confidence scores before accepting.
+            </p>
+          </div>
+
+          <div class="mt-8 pt-4 border-t border-white/[0.08] font-mono text-[11px] text-zinc-400">
+            $ agentwiki review &rarr; git diff
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= SECTION 3: MCP TOOLS INSPECTOR ================= -->
+  <section id="mcp-tools" class="py-20 border-t border-white/[0.08] bg-[#0c0c0e]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="flex flex-col items-center text-center max-w-3xl mx-auto mb-14">
+        <span class="font-mono text-[11px] uppercase tracking-widest text-zinc-400">PROTOCOL SPECIFICATION</span>
+        <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight text-white">Three High-Precision MCP Tools</h2>
+        <p class="mt-4 text-zinc-400 text-sm sm:text-base leading-relaxed">
+          AgentWiki provides a minimal, non-overlapping tool surface for AI models. Click any tool below to inspect its schema and JSON-RPC payload.
+        </p>
+      </div>
+
+      <!-- Interactive Inspector Box -->
+      <div class="max-w-4xl mx-auto rounded-xl border border-white/10 bg-[#121214] overflow-hidden shadow-xl">
+        
+        <!-- Tab Bar -->
+        <div class="flex border-b border-white/10 bg-[#0d0d10] overflow-x-auto" id="toolTabs">
+          <button type="button" data-tab="search" class="tool-tab flex-1 py-3 px-4 font-mono text-xs text-white border-b-2 border-white bg-white/5 transition-colors focus-visible:outline-none">
+            agentwiki_search
+          </button>
+          <button type="button" data-tab="read" class="tool-tab flex-1 py-3 px-4 font-mono text-xs text-zinc-400 hover:text-white border-b-2 border-transparent transition-colors focus-visible:outline-none">
+            agentwiki_read
+          </button>
+          <button type="button" data-tab="propose" class="tool-tab flex-1 py-3 px-4 font-mono text-xs text-zinc-400 hover:text-white border-b-2 border-transparent transition-colors focus-visible:outline-none">
+            agentwiki_propose_diff
+          </button>
+        </div>
+
+        <!-- Tool 1: Search -->
+        <div id="tabContentSearch" class="tool-tab-content p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-white/10 mb-4">
+            <div>
+              <div class="font-mono text-sm text-white font-medium">agentwiki_search(query, limit)</div>
+              <div class="text-xs text-zinc-400 mt-0.5">Sub-5ms BM25 full-text search returning relevant documents with token metrics.</div>
+            </div>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 self-start sm:self-auto">READ-ONLY</span>
+          </div>
+
+          <div class="rounded-lg bg-[#09090b] border border-white/5 p-4 font-mono text-xs leading-relaxed text-zinc-300 overflow-x-auto">
+            <span class="text-zinc-500">// Example tool call from Claude Code</span><br>
+            <span class="text-zinc-400">{</span><br>
+            &nbsp;&nbsp;<span class="text-zinc-400">"name":</span> <span class="text-white">"agentwiki_search"</span>,<br>
+            &nbsp;&nbsp;<span class="text-zinc-400">"arguments":</span> {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-zinc-400">"query":</span> <span class="text-white">"authentication token rotation"</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-zinc-400">"limit":</span> <span class="text-white">3</span><br>
+            &nbsp;&nbsp;}<br>
+            <span class="text-zinc-400">}</span>
+          </div>
+        </div>
+
+        <!-- Tool 2: Read -->
+        <div id="tabContentRead" class="tool-tab-content hidden p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-white/10 mb-4">
+            <div>
+              <div class="font-mono text-sm text-white font-medium">agentwiki_read(slug, format)</div>
+              <div class="text-xs text-zinc-400 mt-0.5">Fetches structured document content in markdown, JSON entities, or sub-400-token summary.</div>
+            </div>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 self-start sm:self-auto">READ-ONLY</span>
+          </div>
+
+          <div class="rounded-lg bg-[#09090b] border border-white/5 p-4 font-mono text-xs leading-relaxed text-zinc-300 overflow-x-auto">
+            <span class="text-zinc-500">// Example tool call from Cursor</span><br>
+            <span class="text-zinc-400">{</span><br>
+            &nbsp;&nbsp;<span class="text-zinc-400">"name":</span> <span class="text-white">"agentwiki_read"</span>,<br>
+            &nbsp;&nbsp;<span class="text-zinc-400">"arguments":</span> {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-zinc-400">"slug":</span> <span class="text-white">"architecture/auth-invariants"</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-zinc-400">"format":</span> <span class="text-white">"json_summary"</span><br>
+            &nbsp;&nbsp;}<br>
+            <span class="text-zinc-400">}</span>
+          </div>
+        </div>
+
+        <!-- Tool 3: Propose Diff -->
+        <div id="tabContentPropose" class="tool-tab-content hidden p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-white/10 mb-4">
+            <div>
+              <div class="font-mono text-sm text-white font-medium">agentwiki_propose_diff(slug, diff, rationale)</div>
+              <div class="text-xs text-zinc-400 mt-0.5">Allows agents to safely propose updates without directly overwriting git files.</div>
+            </div>
+            <span class="font-mono text-[11px] px-2 py-0.5 rounded bg-white/10 border border-white/20 text-white self-start sm:self-auto">ATOMIC PROPOSAL</span>
+          </div>
+
+          <div class="rounded-lg bg-[#09090b] border border-white/5 p-4 font-mono text-xs leading-relaxed text-zinc-300 overflow-x-auto">
+            <span class="text-zinc-500">// Agent submits architectural proposal</span><br>
+            <span class="text-zinc-400">{</span><br>
+            &nbsp;&nbsp;<span class="text-zinc-400">"name":</span> <span class="text-white">"agentwiki_propose_diff"</span>,<br>
+            &nbsp;&nbsp;<span class="text-zinc-400">"arguments":</span> {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-zinc-400">"slug":</span> <span class="text-white">"api/v2-endpoints"</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-zinc-400">"rationale":</span> <span class="text-white">"Updated rate limit headers to RFC 7807 specification"</span>,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="text-zinc-400">"confidence":</span> <span class="text-white">0.96</span><br>
+            &nbsp;&nbsp;}<br>
+            <span class="text-zinc-400">}</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= SECTION 4: QUICKSTART (60 SECONDS) ================= -->
+  <section id="quickstart" class="py-20 border-t border-white/[0.08] bg-[#09090b]">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="flex flex-col items-center text-center max-w-3xl mx-auto mb-16">
+        <span class="font-mono text-[11px] uppercase tracking-widest text-zinc-400">QUICKSTART</span>
+        <h2 class="mt-3 text-3xl sm:text-4xl font-medium tracking-tight text-white">Up and Running in 60 Seconds</h2>
+        <p class="mt-4 text-zinc-400 text-sm sm:text-base leading-relaxed">
+          Zero installation footprint. Compatible with all modern LLM IDEs and terminals.
+        </p>
+      </div>
+
+      <!-- 3 Steps -->
+      <div class="max-w-4xl mx-auto space-y-6">
+        
+        <!-- Step 1 -->
+        <div class="rounded-xl border border-white/10 bg-[#121214] p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-6 h-6 rounded-full bg-white text-black font-mono text-xs font-semibold flex items-center justify-center">1</span>
+            <h3 class="text-base font-medium text-white">Initialize AgentWiki in your repository</h3>
+          </div>
+          <p class="text-xs text-zinc-400 mb-4 pl-9">Creates the <code class="text-white bg-white/5 px-1 py-0.5 rounded">.agentwiki/</code> directory with starter documentation templates and schema validation.</p>
+          <div class="pl-9">
+            <div class="rounded-lg bg-[#09090b] border border-white/5 px-4 py-3 font-mono text-xs text-zinc-300 flex items-center justify-between">
+              <div>$ npx @hamidshahid/agentwiki init</div>
+              <button type="button" onclick="navigator.clipboard.writeText('npx @hamidshahid/agentwiki init')" class="btn-tactile text-[11px] text-zinc-400 hover:text-white px-2 py-0.5 rounded border border-white/10 bg-white/5">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="rounded-xl border border-white/10 bg-[#121214] p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-6 h-6 rounded-full bg-white text-black font-mono text-xs font-semibold flex items-center justify-center">2</span>
+            <h3 class="text-base font-medium text-white">Compile the knowledge graph</h3>
+          </div>
+          <p class="text-xs text-zinc-400 mb-4 pl-9">Builds the local SQLite full-text search index and verifies Markdown frontmatter integrity.</p>
+          <div class="pl-9">
+            <div class="rounded-lg bg-[#09090b] border border-white/5 px-4 py-3 font-mono text-xs text-zinc-300 flex items-center justify-between">
+              <div>$ npx @hamidshahid/agentwiki compile</div>
+              <button type="button" onclick="navigator.clipboard.writeText('npx @hamidshahid/agentwiki compile')" class="btn-tactile text-[11px] text-zinc-400 hover:text-white px-2 py-0.5 rounded border border-white/10 bg-white/5">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="rounded-xl border border-white/10 bg-[#121214] p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-6 h-6 rounded-full bg-white text-black font-mono text-xs font-semibold flex items-center justify-center">3</span>
+            <h3 class="text-base font-medium text-white">Register the MCP Server in Cursor or Claude Code</h3>
+          </div>
+          <p class="text-xs text-zinc-400 mb-4 pl-9">Add the following block to your <code class="text-white bg-white/5 px-1 py-0.5 rounded">.cursor/mcp.json</code> or Claude Code configuration:</p>
+          <div class="pl-9">
+            <div class="rounded-lg bg-[#09090b] border border-white/5 p-4 font-mono text-xs text-zinc-300 relative">
+              <button type="button" id="copyMcpJsonBtn" class="btn-tactile absolute top-3 right-3 text-[11px] text-zinc-400 hover:text-white px-2.5 py-1 rounded border border-white/10 bg-white/5">
+                Copy JSON
+              </button>
+              <pre class="overflow-x-auto text-zinc-300"><code>{
+  "mcpServers": {
+    "agentwiki": {
+      "command": "npx",
+      "args": ["-y", "@hamidshahid/agentwiki", "serve"]
+    }
+  }
+}</code></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="mt-auto border-t border-white/[0.08] bg-[#09090b] py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      
+      <!-- Logo & Copyright -->
+      <div class="flex items-center gap-3">
+        <div class="w-6 h-6 rounded bg-[#09090b] border border-zinc-700 flex items-center justify-center p-0.5">
+          <svg width="18" height="18" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 5.5L25 10.5L16 15.5L7 10.5Z" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M16 15.5V26.5" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M7 10.5V21.5L16 26.5L25 21.5V10.5" stroke="#FFFFFF" stroke-width="1.8" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <span class="text-xs font-mono text-zinc-400">AgentWiki &copy; 2026 Hamid Shahid. MIT Licensed.</span>
+      </div>
+
+      <!-- Links -->
+      <div class="flex items-center gap-6 text-xs font-mono text-zinc-400">
+        <a href="https://github.com/HamidCodedot/agentwiki" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">GitHub Repository</a>
+        <a href="https://github.com/HamidCodedot/agentwiki/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Architecture Spec</a>
+        <a href="https://github.com/HamidCodedot/agentwiki/issues" target="_blank" rel="noopener noreferrer" class="hover:text-white transition-colors">Issues</a>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- ================= INTERACTIVE SCRIPTS ================= -->
+  <script>
+    // 1. Mobile Menu Toggle
+    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileDrawer = document.getElementById('mobileDrawer');
+    const hamburgerIcon = document.getElementById('hamburgerIcon');
+    const closeIcon = document.getElementById('closeIcon');
+
+    if (mobileMenuBtn && mobileDrawer) {
+      mobileMenuBtn.addEventListener('click', () => {
+        const isHidden = mobileDrawer.classList.contains('hidden');
+        if (isHidden) {
+          mobileDrawer.classList.remove('hidden');
+          hamburgerIcon.classList.add('hidden');
+          closeIcon.classList.remove('hidden');
+        } else {
+          mobileDrawer.classList.add('hidden');
+          hamburgerIcon.classList.remove('hidden');
+          closeIcon.classList.add('hidden');
+        }
+      });
+
+      // Auto close drawer when clicking any nav link
+      document.querySelectorAll('.mobile-nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+          mobileDrawer.classList.add('hidden');
+          hamburgerIcon.classList.remove('hidden');
+          closeIcon.classList.add('hidden');
+        });
+      });
+    }
+
+    // 2. Tactile Copy Button for Hero Command
+    const heroCopyBtn = document.getElementById('heroCopyBtn');
+    const heroCopyText = document.getElementById('heroCopyText');
+
+    if (heroCopyBtn) {
+      heroCopyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText('npx @hamidshahid/agentwiki init');
+          heroCopyText.textContent = 'Copied!';
+          setTimeout(() => {
+            heroCopyText.textContent = 'Copy';
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy', err);
+        }
+      });
+    }
+
+    // 3. Copy MCP JSON Snippet
+    const copyMcpJsonBtn = document.getElementById('copyMcpJsonBtn');
+    if (copyMcpJsonBtn) {
+      copyMcpJsonBtn.addEventListener('click', async () => {
+        const jsonText = `{\n  "mcpServers": {\n    "agentwiki": {\n      "command": "npx",\n      "args": ["-y", "@hamidshahid/agentwiki", "serve"]\n    }\n  }\n}`;
+        try {
+          await navigator.clipboard.writeText(jsonText);
+          copyMcpJsonBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            copyMcpJsonBtn.textContent = 'Copy JSON';
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy', err);
+        }
+      });
+    }
+
+    // 4. Interactive MCP Tool Inspector Tabs
+    const tabs = document.querySelectorAll('.tool-tab');
+    const tabContents = {
+      search: document.getElementById('tabContentSearch'),
+      read: document.getElementById('tabContentRead'),
+      propose: document.getElementById('tabContentPropose'),
+    };
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        
+        // Reset all tabs
+        tabs.forEach(t => {
+          t.classList.remove('text-white', 'border-white', 'bg-white/5');
+          t.classList.add('text-zinc-400', 'border-transparent');
+        });
+
+        // Activate clicked tab
+        tab.classList.add('text-white', 'border-white', 'bg-white/5');
+        tab.classList.remove('text-zinc-400', 'border-transparent');
+
+        // Hide all contents and show target
+        Object.keys(tabContents).forEach(key => {
+          if (tabContents[key]) {
+            if (key === target) {
+              tabContents[key].classList.remove('hidden');
+            } else {
+              tabContents[key].classList.add('hidden');
+            }
+          }
+        });
+      });
+    });
+  </script>
+</body>
+</html>
