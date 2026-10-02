@@ -15,7 +15,7 @@ export function createAgentWikiMcpServer(
 ): McpServer {
   const server = new McpServer({
     name: 'agentwiki',
-    version: '0.1.0',
+    version: '0.2.0',
   });
 
   // Tool 1: agentwiki_search
@@ -163,7 +163,7 @@ export function createAgentWikiMcpServer(
                 entity_id,
                 status: 'staged',
                 message:
-                  'Proposal staged successfully in .agentwiki/proposals/. A human developer will review and merge it via `npx agent-wiki review`.',
+                  'Proposal staged successfully in .agentwiki/proposals/. A human developer will review and merge it via `npx @hamidshahid/agentwiki review`.',
               },
               null,
               2

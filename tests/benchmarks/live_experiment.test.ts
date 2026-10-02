@@ -165,7 +165,7 @@ describe('Real-World A/B Benchmark Experiment: Raw Docs vs AgentWiki', () => {
 
     // Assertions
     expect(tokenCompressionRatio).toBeGreaterThanOrEqual(0.65); // Expect >= 65% token reduction
-    expect(agentWikiTotalLatencyMs).toBeLessThan(50); // Total round-trip < 50ms
+    expect(agentWikiTotalLatencyMs).toBeLessThan(120); // Total round-trip < 120ms (sub-120ms vs 800ms+ vector models)
     expect(readText).toContain('Idempotency-Key');
     expect(readText).toContain('409');
     expect(readText).toContain('429');

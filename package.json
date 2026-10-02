@@ -1,6 +1,6 @@
 {
   "name": "@hamidshahid/agentwiki",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Agent-Native Knowledge Engine & Local MCP Server",
   "publishConfig": {
     "access": "public"

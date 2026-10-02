@@ -86,4 +86,84 @@ describe('CLI Integration Workflows', () => {
 
     indexer.close();
   });
+
+  it('compile workflow prunes orphaned entities when source files are deleted', () => {
+    const agentWikiDir = path.join(tempProjectDir, '.agentwiki');
+    const storage = new StorageEngine(agentWikiDir);
+    storage.init();
+
+    const dbPath = path.join(agentWikiDir, 'index.db');
+    const indexer = new IndexerEngine(dbPath);
+    indexer.init();
+
+    try {
+      // 1. Create a dummy doc directory with 2 files
+      const docsDir = path.join(tempProjectDir, 'docs');
+      fs.mkdirSync(docsDir, { recursive: true });
+      fs.writeFileSync(path.join(docsDir, 'fileA.md'), '## Alpha Service\nArchitecture for Alpha', 'utf-8');
+      fs.writeFileSync(path.join(docsDir, 'fileB.md'), '## Beta Payment\nIntegration for Beta', 'utf-8');
+
+      // Compile both
+      const initialResult = compileSource(docsDir, storage, indexer);
+      expect(initialResult.entitiesCreated).toBe(2);
+      expect(storage.listPages().length).toBe(2);
+
+      // 2. Delete fileB.md
+      fs.unlinkSync(path.join(docsDir, 'fileB.md'));
+
+      // Re-compile with prune: true
+      const prunedResult = compileSource(docsDir, storage, indexer, { prune: true });
+      expect(prunedResult.entitiesCreated).toBe(1);
+      expect(prunedResult.prunedCount).toBe(1);
+
+      // Verify storage only has Alpha Service
+      const pages = storage.listPages();
+      expect(pages.length).toBe(1);
+      expect(pages[0].metadata.id).toBe('alpha_service');
+      expect(storage.loadPage('beta_payment')).toBeNull();
+
+      // Verify indexer does not return Beta Payment
+      const searchBeta = indexer.search('Beta');
+      expect(searchBeta.length).toBe(0);
+    } finally {
+      indexer.close();
+    }
+  });
+
+  it('collects diagnostic warnings when compiling a file without valid endpoints', () => {
+    const agentWikiDir = path.join(tempProjectDir, '.agentwiki');
+    const storage = new StorageEngine(agentWikiDir);
+    storage.init();
+
+    const dbPath = path.join(agentWikiDir, 'index.db');
+    const indexer = new IndexerEngine(dbPath);
+    indexer.init();
+
+    // Create an empty json file
+    const invalidFile = path.join(tempProjectDir, 'empty.json');
+    fs.writeFileSync(invalidFile, '{"name": "not an openapi spec"}', 'utf-8');
+
+    const result = compileSource(invalidFile, storage, indexer);
+    expect(result.entitiesCreated).toBe(0);
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings[0]).toContain('no valid OpenAPI operations');
+
+    indexer.close();
+  });
+
+  it('detects local package installation and generates direct node config with workspaceFolder cwd', () => {
+    // Scaffold fake local package in node_modules
+    const localPkgDir = path.join(tempProjectDir, 'node_modules', '@hamidshahid', 'agentwiki', 'dist', 'bin');
+    fs.mkdirSync(localPkgDir, { recursive: true });
+    fs.writeFileSync(path.join(localPkgDir, 'cli.js'), '#!/usr/bin/env node', 'utf-8');
+
+    const result = setupIde(tempProjectDir);
+    expect(result.cursorConfigured).toBe(true);
+
+    const cursorConfig = JSON.parse(
+      fs.readFileSync(path.join(tempProjectDir, '.cursor', 'mcp.json'), 'utf-8')
+    );
+    expect(cursorConfig.mcpServers['agentwiki'].command).toBe('node');
+    expect(cursorConfig.mcpServers['agentwiki'].cwd).toBe('${workspaceFolder}');
+  });
 });

@@ -6,9 +6,15 @@ import { parseOpenApi } from '../parsers/openapi.js';
 import { parseMarkdownDoc } from '../parsers/markdown.js';
 import { AgentWikiPage } from './types.js';
 
+export interface CompileOptions {
+  prune?: boolean;
+}
+
 export interface CompileResult {
   filesProcessed: number;
   entitiesCreated: number;
+  prunedCount: number;
+  warnings: string[];
   pages: AgentWikiPage[];
 }
 
@@ -18,7 +24,8 @@ export interface CompileResult {
 export function compileSource(
   sourcePath: string,
   storage: StorageEngine,
-  indexer: IndexerEngine
+  indexer: IndexerEngine,
+  options?: CompileOptions
 ): CompileResult {
   const resolved = path.resolve(sourcePath);
   if (!fs.existsSync(resolved)) {
@@ -36,6 +43,7 @@ export function compileSource(
 
   let filesProcessed = 0;
   const compiledPages: AgentWikiPage[] = [];
+  const warnings: string[] = [];
 
   for (const filePath of files) {
     const ext = path.extname(filePath).toLowerCase();
@@ -45,12 +53,21 @@ export function compileSource(
     if (ext === '.json' || ext === '.yaml' || ext === '.yml') {
       try {
         pages = parseOpenApi(content);
-      } catch {
-        // Not a valid OpenAPI spec, skip cleanly
+        if (pages.length === 0 && stat.isFile()) {
+          warnings.push(`File "${path.basename(filePath)}" contains no valid OpenAPI operations or endpoints.`);
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (stat.isFile()) {
+          warnings.push(`Failed to parse "${path.basename(filePath)}": ${msg}`);
+        }
       }
     } else if (ext === '.md' || ext === '.markdown') {
       const docTitle = path.basename(filePath, ext);
       pages = parseMarkdownDoc(content, docTitle);
+      if (pages.length === 0 && stat.isFile()) {
+        warnings.push(`File "${path.basename(filePath)}" contains no headings or content to index.`);
+      }
     }
 
     if (pages.length > 0) {
@@ -63,9 +80,24 @@ export function compileSource(
     }
   }
 
+  let prunedCount = 0;
+  if (options?.prune) {
+    const compiledIds = new Set(compiledPages.map((p) => p.metadata.id));
+    const existingPages = storage.listPages();
+    for (const existing of existingPages) {
+      if (!compiledIds.has(existing.metadata.id)) {
+        storage.deletePage(existing.metadata.id);
+        indexer.removeIndex(existing.metadata.id);
+        prunedCount++;
+      }
+    }
+  }
+
   return {
     filesProcessed,
     entitiesCreated: compiledPages.length,
+    prunedCount,
+    warnings,
     pages: compiledPages,
   };
 }

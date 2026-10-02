@@ -70,7 +70,16 @@ export function parseOpenApi(source: string | Record<string, unknown>): AgentWik
     doc = source as OpenApiDoc;
   }
 
-  if (!doc || !doc.paths) {
+  if (!doc || typeof doc !== 'object') {
+    throw new Error('Invalid input: Document is empty or not a valid JSON/YAML object.');
+  }
+
+  // If explicitly declared as OpenAPI/Swagger but missing paths
+  if ((doc.openapi || doc.swagger) && (!doc.paths || Object.keys(doc.paths).length === 0)) {
+    throw new Error('OpenAPI specification is missing "paths" definition or contains no endpoints.');
+  }
+
+  if (!doc.paths) {
     return [];
   }
 

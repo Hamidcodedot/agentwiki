@@ -216,4 +216,56 @@ export class StorageEngine {
     this.saveProposal(proposal);
     return true;
   }
+
+  /**
+   * Approves a proposal, merges its patch/claim into the target AgentWikiPage,
+   * updates the page timestamp, and saves both the page and proposal to disk.
+   */
+  public approveAndApplyProposal(id: string): {
+    success: boolean;
+    page?: AgentWikiPage;
+    proposal?: AgentWikiProposal;
+    error?: string;
+  } {
+    const proposal = this.loadProposal(id);
+    if (!proposal) {
+      return { success: false, error: `Proposal "${id}" not found.` };
+    }
+
+    const page = this.loadPage(proposal.entity_id);
+    if (!page) {
+      return {
+        success: false,
+        error: `Target entity "${proposal.entity_id}" does not exist in knowledge base.`,
+      };
+    }
+
+    const headerRegex = /^##\s+Verified Invariants & Fixes\s*$/m;
+    let entryText = `\n### Discovery: ${proposal.claim} (Reported by ${proposal.author_agent})\n`;
+    entryText += `**Evidence:**\n\`\`\`\n${proposal.evidence}\n\`\`\`\n`;
+    if (proposal.patch && proposal.patch.trim().length > 0) {
+      entryText += `\n**Proposed Invariant / Patch:**\n\n${proposal.patch.trim()}\n`;
+    }
+
+    if (headerRegex.test(page.content)) {
+      page.content = page.content.replace(headerRegex, (match) => `${match}${entryText}`);
+    } else {
+      page.content = `${page.content.trim()}\n\n## Verified Invariants & Fixes\n${entryText}`;
+    }
+
+    page.metadata.updated_at = new Date().toISOString();
+
+    // Persist updated page
+    this.savePage(page);
+
+    // Update proposal status
+    proposal.status = 'approved';
+    this.saveProposal(proposal);
+
+    return {
+      success: true,
+      page,
+      proposal,
+    };
+  }
 }

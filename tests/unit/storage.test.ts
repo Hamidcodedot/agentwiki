@@ -150,4 +150,86 @@ describe('StorageEngine', () => {
     const updated = storage.loadProposal('prop_test_1');
     expect(updated?.status).toBe('approved');
   });
+
+  it('approves and applies proposal patch directly into target page', () => {
+    const page: AgentWikiPage = {
+      metadata: {
+        id: 'api_orders',
+        name: 'Orders API',
+        category: 'api',
+        tags: ['orders'],
+        relations: { requires: [], supersedes: [], related: [] },
+        summary: 'Order processing API',
+        updated_at: '2026-01-01T00:00:00.000Z',
+      },
+      content: '## Endpoints\nPOST /orders',
+    };
+    storage.savePage(page);
+
+    const proposal: AgentWikiProposal = {
+      id: 'prop_order_fix',
+      entity_id: 'api_orders',
+      author_agent: 'cursor-agent',
+      claim: 'Requires customer_email in request body',
+      evidence: 'HTTP 422 Unprocessable Entity without email',
+      patch: 'Must include `customer_email: string` to prevent checkout failure.',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+    storage.saveProposal(proposal);
+
+    const result = storage.approveAndApplyProposal('prop_order_fix');
+    expect(result.success).toBe(true);
+    expect(result.page).toBeDefined();
+
+    // Verify page on disk is patched
+    const updatedPage = storage.loadPage('api_orders');
+    expect(updatedPage?.content).toContain('## Verified Invariants & Fixes');
+    expect(updatedPage?.content).toContain('Requires customer_email in request body');
+    expect(updatedPage?.content).toContain('cursor-agent');
+    expect(updatedPage?.content).toContain('Must include `customer_email: string`');
+    expect(updatedPage?.metadata.updated_at).not.toBe('2026-01-01T00:00:00.000Z');
+
+    // Verify proposal status is updated
+    const updatedProp = storage.loadProposal('prop_order_fix');
+    expect(updatedProp?.status).toBe('approved');
+
+    // Applying a second proposal to the same page appends under the same header without duplicating
+    const proposal2: AgentWikiProposal = {
+      id: 'prop_order_fix_2',
+      entity_id: 'api_orders',
+      author_agent: 'claude-code',
+      claim: 'Rate limited to 10 req/s',
+      evidence: 'HTTP 429 after 11 rapid requests',
+      patch: 'Enforce client-side rate limit of 10 requests per second.',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+    storage.saveProposal(proposal2);
+
+    const result2 = storage.approveAndApplyProposal('prop_order_fix_2');
+    expect(result2.success).toBe(true);
+
+    const reloadedPage = storage.loadPage('api_orders');
+    const headerOccurrences = (reloadedPage?.content.match(/## Verified Invariants & Fixes/g) ?? []).length;
+    expect(headerOccurrences).toBe(1);
+    expect(reloadedPage?.content).toContain('Rate limited to 10 req/s');
+  });
+
+  it('returns descriptive error if target entity is missing during proposal approval', () => {
+    const proposal: AgentWikiProposal = {
+      id: 'prop_orphan',
+      entity_id: 'non_existent_entity',
+      author_agent: 'test-agent',
+      claim: 'Some claim',
+      evidence: 'Some evidence',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+    storage.saveProposal(proposal);
+
+    const result = storage.approveAndApplyProposal('prop_orphan');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Target entity "non_existent_entity" does not exist');
+  });
 });

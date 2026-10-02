@@ -18,10 +18,20 @@ export function setupIde(projectDir: string = process.cwd()): IdeSetupResult {
     claudeConfigured: false,
   };
 
-  const agentWikiServerConfig = {
-    command: 'npx',
-    args: ['-y', '@hamidshahid/agentwiki', 'serve'],
-  };
+  const localPkgCli = path.join(projectDir, 'node_modules', '@hamidshahid', 'agentwiki', 'dist', 'bin', 'cli.js');
+  const hasLocalInstall = fs.existsSync(localPkgCli);
+
+  const agentWikiServerConfig: Record<string, unknown> = hasLocalInstall
+    ? {
+        command: 'node',
+        args: ['./node_modules/@hamidshahid/agentwiki/dist/bin/cli.js', 'serve'],
+        cwd: '${workspaceFolder}',
+      }
+    : {
+        command: 'npx',
+        args: ['-y', '@hamidshahid/agentwiki', 'serve'],
+        cwd: '${workspaceFolder}',
+      };
 
   // 1. Configure Cursor IDE (.cursor/mcp.json)
   const cursorDir = path.join(projectDir, '.cursor');

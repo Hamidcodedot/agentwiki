@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { StorageEngine } from '../src/core/storage.js';
 import { IndexerEngine } from '../src/core/indexer.js';
@@ -21,14 +22,14 @@ const program = new Command();
 program
   .name('agentwiki')
   .description('Agent-Native Knowledge Engine & Local MCP Server')
-  .version('0.1.0');
+  .version('0.2.0');
 
 // Command: init
 program
   .command('init [dir]')
   .description('Initialize AgentWiki in the current project and configure Cursor/Claude Code')
   .action((dir) => {
-    renderBanner('0.1.0');
+    renderBanner('0.2.0');
     console.log();
 
     const targetDir = dir ? path.resolve(dir) : process.cwd();
@@ -56,11 +57,26 @@ program
       console.log(`       ${colors.zinc('Config:')} ${colors.white(ideResult.claudePath)}`);
     }
 
+    const hasDocs = fs.existsSync(path.join(targetDir, 'docs'));
+    const hasReadme = fs.existsSync(path.join(targetDir, 'README.md'));
+
     console.log(`\n ${colors.bold(colors.white('Next Actions:'))}`);
-    renderActionStep(1, 'Compile Markdown Docs:', 'npx @hamidshahid/agentwiki compile ./docs');
-    renderActionStep(2, 'Compile OpenAPI Spec:', 'npx @hamidshahid/agentwiki compile ./openapi.json');
-    renderActionStep(3, 'Inspect Knowledge Status:', 'npx @hamidshahid/agentwiki status');
-    renderActionStep(4, 'Run Local MCP Server:', 'npx @hamidshahid/agentwiki serve');
+    if (hasDocs) {
+      renderActionStep(1, 'Compile Markdown Docs:', 'npx @hamidshahid/agentwiki compile ./docs');
+    } else if (hasReadme) {
+      renderActionStep(1, 'Compile README Docs:', 'npx @hamidshahid/agentwiki compile ./README.md');
+    } else {
+      const starterDir = path.join(targetDir, 'docs');
+      fs.mkdirSync(starterDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(starterDir, 'overview.md'),
+        '# Project Documentation\n\n## System Invariants\nHigh-density documentation for project architecture and API invariants.\n',
+        'utf-8'
+      );
+      renderActionStep(1, 'Compile Starter Docs:', 'npx @hamidshahid/agentwiki compile ./docs');
+    }
+    renderActionStep(2, 'Inspect Knowledge Status:', 'npx @hamidshahid/agentwiki status');
+    renderActionStep(3, 'Run Local MCP Server:', 'npx @hamidshahid/agentwiki serve');
     console.log();
   });
 
@@ -68,7 +84,8 @@ program
 program
   .command('compile <source>')
   .description('Compile OpenAPI specs or Markdown docs into high-density AgentWiki pages')
-  .action((source) => {
+  .option('--prune', 'Remove orphaned entities no longer present in source')
+  .action((source, options) => {
     const agentWikiDir = path.join(process.cwd(), '.agentwiki');
     const storage = new StorageEngine(agentWikiDir);
     storage.init();
@@ -80,18 +97,31 @@ program
     try {
       console.log(`\n ${badges.info()} ${colors.zinc('Compiling source:')} ${colors.white(source)}...`);
       const startTime = performance.now();
-      const result = compileSource(source, storage, indexer);
+      const result = compileSource(source, storage, indexer, { prune: options.prune });
       const elapsed = (performance.now() - startTime).toFixed(1);
 
       console.log(` ${badges.ok()}   ${colors.bold('Compilation complete')} in ${colors.cyan(`${elapsed}ms`)}\n`);
 
-      renderCard('AgentWiki Ingestion Summary', [
+      if (result.warnings.length > 0) {
+        for (const warn of result.warnings) {
+          console.warn(` ${badges.warn()} ${colors.amber(warn)}`);
+        }
+        console.log();
+      }
+
+      const cardEntries: Array<[string, string | number]> = [
         ['Files Ingested', result.filesProcessed],
         ['Entities Created', result.entitiesCreated],
         ['Storage Location', '.agentwiki/pages/'],
         ['Search Index Engine', 'SQLite FTS5 (.agentwiki/index.db)'],
         ['Token Compression', '60% – 80% TCR achieved'],
-      ]);
+      ];
+
+      if (result.prunedCount > 0) {
+        cardEntries.push(['Orphaned Entities Pruned', result.prunedCount]);
+      }
+
+      renderCard('AgentWiki Ingestion Summary', cardEntries);
 
       console.log(`\n ${badges.info()} Run ${colors.cyan('npx @hamidshahid/agentwiki status')} to inspect the indexed knowledge graph.\n`);
     } catch (err: unknown) {
@@ -134,7 +164,7 @@ program
     const proposals = storage.listProposals();
     const pendingProposals = proposals.filter((p) => p.status === 'pending');
 
-    renderBanner('0.1.0');
+    renderBanner('0.2.0');
     console.log();
 
     const categoryCounts: Record<string, number> = {};
@@ -179,11 +209,19 @@ program
     storage.init();
 
     if (options.approve) {
-      const ok = storage.updateProposalStatus(options.approve, 'approved');
-      if (ok) {
-        console.log(`\n ${badges.ok()} Proposal ${colors.bold(colors.emerald(options.approve))} marked as ${colors.emerald('APPROVED')}.\n`);
+      const result = storage.approveAndApplyProposal(options.approve);
+      if (result.success && result.page) {
+        const dbPath = path.join(agentWikiDir, 'index.db');
+        const indexer = new IndexerEngine(dbPath);
+        indexer.init();
+        indexer.indexPage(result.page, storage.getPagePath(result.page.metadata.id));
+        indexer.close();
+
+        console.log(`\n ${badges.ok()} Proposal ${colors.bold(colors.emerald(options.approve))} merged into ${colors.white(result.page.metadata.id)}.`);
+        console.log(`       ${colors.zinc('Ground Truth:')} ${colors.white(storage.getPagePath(result.page.metadata.id))}`);
+        console.log(`       ${colors.zinc('Search Index:')} Re-indexed in SQLite FTS5.\n`);
       } else {
-        console.error(`\n ${badges.error()} Proposal ${colors.rose(options.approve)} not found.\n`);
+        console.error(`\n ${badges.error()} Could not approve: ${colors.rose(result.error ?? 'Unknown error')}\n`);
       }
       return;
     }
@@ -200,10 +238,24 @@ program
 
     if (options.approveAll) {
       const proposals = storage.listProposals().filter((p) => p.status === 'pending');
-      for (const p of proposals) {
-        storage.updateProposalStatus(p.id, 'approved');
+      if (proposals.length === 0) {
+        console.log(`\n ${badges.info()} No pending proposals to approve.\n`);
+        return;
       }
-      console.log(`\n ${badges.ok()} Approved ${colors.bold(String(proposals.length))} pending proposal(s).\n`);
+      const dbPath = path.join(agentWikiDir, 'index.db');
+      const indexer = new IndexerEngine(dbPath);
+      indexer.init();
+
+      let approvedCount = 0;
+      for (const p of proposals) {
+        const result = storage.approveAndApplyProposal(p.id);
+        if (result.success && result.page) {
+          indexer.indexPage(result.page, storage.getPagePath(result.page.metadata.id));
+          approvedCount++;
+        }
+      }
+      indexer.close();
+      console.log(`\n ${badges.ok()} Successfully approved and merged ${colors.bold(String(approvedCount))} proposal(s) into ground truth.\n`);
       return;
     }
 

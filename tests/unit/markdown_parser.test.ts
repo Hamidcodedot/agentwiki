@@ -45,4 +45,46 @@ describe('Markdown Parser', () => {
       expect(tcr).toBeGreaterThanOrEqual(0.50);
     }
   });
+
+  it('sanitizes tags by stripping brackets, apostrophes, and punctuation', () => {
+    const raw = `
+# Real-World Guide (it's fast & real!)
+## Physics Simulations (it's real physics, really!)
+Body content for simulation physics.
+    `;
+    const pages = parseMarkdownDoc(raw, 'Simulations');
+    expect(pages.length).toBe(1);
+
+    const tags = pages[0].metadata.tags;
+    expect(tags).toContain('its');
+    expect(tags).toContain('physics');
+    expect(tags).not.toContain("(it's");
+    expect(tags).not.toContain('physics,');
+    expect(tags).not.toContain('really!');
+  });
+
+  it('preserves existing YAML frontmatter metadata when provided', () => {
+    const raw = `---
+id: custom_auth_page
+name: Custom OAuth Flow
+category: api
+tags: [security, oauth2]
+relations:
+  requires: [client_id]
+summary: Direct specification of OAuth flow.
+---
+
+## Authorization Code Exchange
+POST /oauth/token with code and secret.
+`;
+    const pages = parseMarkdownDoc(raw, 'Custom Auth');
+    expect(pages.length).toBe(1);
+    expect(pages[0].metadata.id).toBe('custom_auth_page');
+    expect(pages[0].metadata.name).toBe('Authorization Code Exchange');
+    expect(pages[0].metadata.category).toBe('api');
+    expect(pages[0].metadata.tags).toContain('security');
+    expect(pages[0].metadata.tags).toContain('oauth2');
+    expect(pages[0].metadata.relations.requires).toContain('client_id');
+    expect(pages[0].metadata.summary).toBe('Direct specification of OAuth flow.');
+  });
 });
