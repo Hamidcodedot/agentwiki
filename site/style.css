@@ -125,12 +125,14 @@ pre, code, kbd, samp { font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, '
 /* 4. Background Colors */
 .bg-\[\#09090b\] { background-color: #09090b; }
 .bg-\[\#0c0c0e\] { background-color: #0c0c0e; }
+.bg-\[\#0c0c0f\] { background-color: #0c0c0f; }
 .bg-\[\#0d0d10\] { background-color: #0d0d10; }
 .bg-\[\#121214\] { background-color: #121214; }
 .bg-\[\#141418\] { background-color: #141418; }
 .bg-white { background-color: #ffffff; }
 .bg-zinc-200 { background-color: #e4e4e7; }
 .bg-zinc-700 { background-color: #3f3f46; }
+.bg-emerald-400 { background-color: #34d399; }
 
 .bg-white\/5 { background-color: rgba(255, 255, 255, 0.05); }
 .bg-white\/10 { background-color: rgba(255, 255, 255, 0.1); }
@@ -145,6 +147,7 @@ pre, code, kbd, samp { font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, '
 .border { border-width: 1px; }
 .border-t { border-top-width: 1px; }
 .border-b { border-bottom-width: 1px; }
+.border-l { border-left-width: 1px; }
 .border-b-2 { border-bottom-width: 2px; }
 .border-transparent { border-color: transparent; }
 
@@ -185,6 +188,8 @@ pre, code, kbd, samp { font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, '
 .w-8 { width: 32px; }
 .h-8 { height: 32px; }
 .w-10 { width: 40px; }
+.w-32 { width: 128px; }
+.w-36 { width: 144px; }
 .h-10 { height: 40px; }
 
 .h-9 { height: 36px; }
@@ -281,12 +286,17 @@ pre, code, kbd, samp { font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, '
 .gap-1 { gap: 4px; }
 .gap-1\.5 { gap: 6px; }
 .gap-2 { gap: 8px; }
+.gap-2\.5 { gap: 10px; }
 .gap-3 { gap: 12px; }
 .gap-4 { gap: 16px; }
 .gap-6 { gap: 24px; }
 .gap-8 { gap: 32px; }
+.gap-12 { gap: 48px; }
 
 .space-y-1 > :not([hidden]) ~ :not([hidden]) { margin-top: 4px; }
+.space-y-1\.5 > :not([hidden]) ~ :not([hidden]) { margin-top: 6px; }
+.space-y-2\.5 > :not([hidden]) ~ :not([hidden]) { margin-top: 10px; }
+.space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 16px; }
 .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 24px; }
 
 .shrink-0 { flex-shrink: 0; }
@@ -391,6 +401,10 @@ pre, code, kbd, samp { font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, '
   .sm\:text-3xl { font-size: 30px; line-height: 36px; }
   .sm\:text-4xl { font-size: 36px; line-height: 40px; }
   .sm\:text-5xl { font-size: 48px; line-height: 1.1; }
+  .sm\:gap-6 { gap: 24px; }
+  .sm\:gap-12 { gap: 48px; }
+  .sm\:items-baseline { align-items: baseline; }
+  .sm\:justify-start { justify-content: flex-start; }
   .sm\:whitespace-normal { white-space: normal; }
 }
 

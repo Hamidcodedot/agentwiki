@@ -145,35 +145,69 @@
       </a>
     </div>
 
-    <!-- Live Obsidian Precision CLI Preview Card -->
-    <div class="mt-12 w-full max-w-3xl min-w-0 rounded-xl border border-white/10 bg-[#0d0d10] p-4 sm:p-6 text-left shadow-2xl relative overflow-hidden">
-      <!-- Card Header -->
-      <div class="flex items-center justify-between pb-4 border-b border-white/[0.06] mb-4">
+    <!-- Clean Minimalist CLI Terminal Preview Card -->
+    <div class="mt-12 w-full max-w-2xl min-w-0 rounded-xl border border-white/10 bg-[#0c0c0f] p-5 sm:p-6 text-left shadow-2xl relative overflow-hidden">
+      <!-- Window Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-white/[0.08] mb-5">
         <div class="flex items-center gap-2">
           <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
           <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
           <div class="w-2.5 h-2.5 rounded-full bg-zinc-700"></div>
-          <span class="ml-2 font-mono text-[11px] text-zinc-500">agentwiki terminal session — stdio</span>
+          <span class="ml-2 font-mono text-[12px] text-zinc-400">agentwiki terminal session</span>
         </div>
-        <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-400">
-          <span class="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300">MCP ACTIVE</span>
+        <div class="flex items-center gap-1.5 font-mono text-[11px] text-zinc-300 px-2 py-0.5 rounded border border-white/10 bg-white/5">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span>stdio active</span>
         </div>
       </div>
 
-      <!-- Terminal Output Content (Obsidian Precision Style) -->
-      <div class="font-mono text-[11px] sm:text-[13px] leading-relaxed text-zinc-300 overflow-x-auto min-w-0 select-text pb-1">
-        <div class="text-zinc-500 mb-2">$ agentwiki status</div>
-        <div class="text-zinc-400 whitespace-pre">┌─ AGENTWIKI STATUS ────────────────────────────────────────────────────────┐</div>
-        <div class="text-zinc-300 whitespace-pre">│  Knowledge Root:   <span class="text-white">.agentwiki/</span>                                            │</div>
-        <div class="text-zinc-300 whitespace-pre">│  Indexed Files:    <span class="text-white font-medium">14 documents</span> (architecture, api, workflows)           │</div>
-        <div class="text-zinc-300 whitespace-pre">│  Index Footprint:  <span class="text-white">48.2 KB</span> (SQLite + JSON index)                         │</div>
-        <div class="text-zinc-300 whitespace-pre">│  Registered Tools: <span class="text-white font-medium">3 tools</span> (search, read, propose_diff)                 │</div>
-        <div class="text-zinc-300 whitespace-pre">│  Daemon Transport: <span class="text-white">stdio</span> (Cursor &amp; Claude Code compatible)              │</div>
-        <div class="text-zinc-400 whitespace-pre">├───────────────────────────────────────────────────────────────────────────┤</div>
-        <div class="text-zinc-300 whitespace-pre">│  <span class="text-white font-semibold">[ok]</span>   Knowledge index up to date (compiled in 12ms)                 │</div>
-        <div class="text-zinc-300 whitespace-pre">│  <span class="text-zinc-400 font-semibold">[mcp]</span>  Local stdio MCP server ready on port unix:stdio              │</div>
-        <div class="text-zinc-300 whitespace-pre">│  <span class="text-zinc-400 font-semibold">[tcr]</span>  Atomic test-commit-revert cycle verification active          │</div>
-        <div class="text-zinc-400 whitespace-pre">└───────────────────────────────────────────────────────────────────────────┘</div>
+      <!-- Terminal Output Content -->
+      <div class="font-mono text-xs sm:text-[13px] leading-relaxed space-y-4">
+        <!-- Command Prompt -->
+        <div class="flex items-center gap-2 text-zinc-400">
+          <span class="text-zinc-600">$</span>
+          <span class="text-white font-medium">agentwiki status</span>
+        </div>
+
+        <!-- Structured Key-Value Specs -->
+        <div class="space-y-2 pl-3 border-l border-white/10 text-xs sm:text-[13px]">
+          <div class="flex flex-col sm:flex-row sm:items-baseline sm:gap-8">
+            <span class="w-36 text-zinc-500 shrink-0 text-[11px] sm:text-xs">Knowledge Root</span>
+            <span class="text-white font-medium">.agentwiki/</span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:items-baseline sm:gap-8">
+            <span class="w-36 text-zinc-500 shrink-0 text-[11px] sm:text-xs">Indexed Files</span>
+            <span class="text-zinc-200">14 documents <span class="text-zinc-500 text-[11px]">(architecture, api, specs)</span></span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:items-baseline sm:gap-8">
+            <span class="w-36 text-zinc-500 shrink-0 text-[11px] sm:text-xs">Index Footprint</span>
+            <span class="text-zinc-200">48.2 KB <span class="text-zinc-500 text-[11px]">(SQLite FTS5 + JSON)</span></span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:items-baseline sm:gap-8">
+            <span class="w-36 text-zinc-500 shrink-0 text-[11px] sm:text-xs">Registered Tools</span>
+            <span class="text-zinc-200">3 tools <span class="text-zinc-500 text-[11px]">(search, read, propose_diff)</span></span>
+          </div>
+          <div class="flex flex-col sm:flex-row sm:items-baseline sm:gap-8">
+            <span class="w-36 text-zinc-500 shrink-0 text-[11px] sm:text-xs">Daemon Transport</span>
+            <span class="text-zinc-200">stdio <span class="text-zinc-500 text-[11px]">(Cursor &amp; Claude Code)</span></span>
+          </div>
+        </div>
+
+        <!-- Semantic Verification Badges -->
+        <div class="pt-3 border-t border-white/[0.08] space-y-2 text-xs">
+          <div class="flex items-center gap-2.5 text-zinc-300">
+            <span class="font-semibold text-white px-1.5 py-0.5 rounded bg-white/10 text-[10px] tracking-wider uppercase shrink-0">OK</span>
+            <span>Knowledge index up to date (compiled in 12ms)</span>
+          </div>
+          <div class="flex items-center gap-2.5 text-zinc-300">
+            <span class="font-semibold text-zinc-300 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] tracking-wider uppercase shrink-0">MCP</span>
+            <span>Local stdio MCP server ready on port unix:stdio</span>
+          </div>
+          <div class="flex items-center gap-2.5 text-zinc-300">
+            <span class="font-semibold text-zinc-300 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] tracking-wider uppercase shrink-0">TCR</span>
+            <span>Atomic test-commit-revert cycle verification active</span>
+          </div>
+        </div>
       </div>
     </div>
 
