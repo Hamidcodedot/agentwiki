@@ -145,4 +145,26 @@ describe('IndexerEngine (SQLite FTS5)', () => {
     expect(results.length).toBeGreaterThan(0);
     expect(elapsed).toBeLessThan(15); // Must be under 15ms
   });
+
+  it('rehydrates empty database from storage provider in a single fast transaction', () => {
+    expect(indexer.getEntityCount()).toBe(0);
+
+    const fakeStorage = {
+      listPages: () => [samplePage1, samplePage2],
+      getPagePath: (id: string) => `/fake/path/${id}.md`,
+    };
+
+    const count = indexer.rehydrateFromStorage(fakeStorage);
+    expect(count).toBe(2);
+    expect(indexer.getEntityCount()).toBe(2);
+
+    // Verify search works immediately
+    const results = indexer.search('checkout');
+    expect(results.length).toBe(1);
+    expect(results[0].id).toBe('stripe_checkout_sessions');
+
+    // Verify relations work immediately
+    const rels = indexer.getRelations('stripe_checkout_sessions');
+    expect(rels.requires).toContain('customer_account');
+  });
 });

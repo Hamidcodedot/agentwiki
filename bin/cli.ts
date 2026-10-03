@@ -6,7 +6,7 @@ import * as path from 'node:path';
 import { StorageEngine } from '../src/core/storage.js';
 import { IndexerEngine } from '../src/core/indexer.js';
 import { compileSource } from '../src/core/compiler.js';
-import { setupIde } from '../src/setup/ide.js';
+import { setupIde, ensureGitignore } from '../src/setup/ide.js';
 import { startStdioServer } from '../src/mcp/server.js';
 import {
   colors,
@@ -55,6 +55,12 @@ program
     if (ideResult.claudeConfigured && ideResult.claudePath) {
       console.log(` ${badges.mcp()}  ${colors.bold('Claude Code configured')}`);
       console.log(`       ${colors.zinc('Config:')} ${colors.white(ideResult.claudePath)}`);
+    }
+
+    const gitignoreUpdated = ensureGitignore(targetDir);
+    if (gitignoreUpdated) {
+      console.log(` ${badges.ok()}  ${colors.bold('.gitignore configured')}`);
+      console.log(`       ${colors.zinc('Rule:')} ${colors.white('.agentwiki/*.db* (SQLite index excluded)')}`);
     }
 
     const hasDocs = fs.existsSync(path.join(targetDir, 'docs'));

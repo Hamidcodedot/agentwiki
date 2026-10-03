@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { setupIde } from '../../src/setup/ide.js';
+import { setupIde, ensureGitignore } from '../../src/setup/ide.js';
 import { StorageEngine } from '../../src/core/storage.js';
 import { IndexerEngine } from '../../src/core/indexer.js';
 import { compileSource } from '../../src/core/compiler.js';
@@ -165,5 +165,62 @@ describe('CLI Integration Workflows', () => {
     );
     expect(cursorConfig.mcpServers['agentwiki'].command).toBe('node');
     expect(cursorConfig.mcpServers['agentwiki'].cwd).toBe('${workspaceFolder}');
+  });
+
+  it('preserves existing servers in mcp.json even with comments or trailing commas', () => {
+    const cursorDir = path.join(tempProjectDir, '.cursor');
+    fs.mkdirSync(cursorDir, { recursive: true });
+
+    // Existing config with single-line comments, multi-line comments, and trailing commas
+    const existingRaw = `{
+      // Development server
+      "mcpServers": {
+        "existing_server": {
+          "command": "node",
+          "args": ["server.js"],
+        }, /* end of existing */
+      },
+    }`;
+    fs.writeFileSync(path.join(cursorDir, 'mcp.json'), existingRaw, 'utf-8');
+
+    const result = setupIde(tempProjectDir);
+    expect(result.cursorConfigured).toBe(true);
+
+    const updated = JSON.parse(
+      fs.readFileSync(path.join(cursorDir, 'mcp.json'), 'utf-8')
+    );
+    expect(updated.mcpServers['existing_server']).toBeDefined();
+    expect(updated.mcpServers['agentwiki']).toBeDefined();
+  });
+
+  it('creates backup file if existing mcp config is severely corrupted rather than wiping user data', () => {
+    const cursorDir = path.join(tempProjectDir, '.cursor');
+    fs.mkdirSync(cursorDir, { recursive: true });
+
+    const corruptRaw = 'THIS IS COMPLETELY UNPARSABLE CORRUPT DATA {{{';
+    fs.writeFileSync(path.join(cursorDir, 'mcp.json'), corruptRaw, 'utf-8');
+
+    setupIde(tempProjectDir);
+
+    // Verify backup was created preserving user data
+    expect(fs.existsSync(path.join(cursorDir, 'mcp.json.bak'))).toBe(true);
+    expect(fs.readFileSync(path.join(cursorDir, 'mcp.json.bak'), 'utf-8')).toBe(corruptRaw);
+  });
+
+  it('ensureGitignore safely appends sqlite index exclusion to project .gitignore', () => {
+    // 1. Initial creation
+    const created = ensureGitignore(tempProjectDir);
+    expect(created).toBe(true);
+
+    let content = fs.readFileSync(path.join(tempProjectDir, '.gitignore'), 'utf-8');
+    expect(content).toContain('.agentwiki/*.db*');
+
+    // 2. Second run is idempotent
+    const second = ensureGitignore(tempProjectDir);
+    expect(second).toBe(false);
+
+    content = fs.readFileSync(path.join(tempProjectDir, '.gitignore'), 'utf-8');
+    const matches = content.match(/\.agentwiki\/\*\.db\*/g) ?? [];
+    expect(matches.length).toBe(1);
   });
 });

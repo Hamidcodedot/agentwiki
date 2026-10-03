@@ -73,6 +73,37 @@ export class IndexerEngine {
   }
 
   /**
+   * Returns the total count of indexed entities in SQLite.
+   */
+  public getEntityCount(): number {
+    const row = this.db.prepare('SELECT COUNT(*) as count FROM entities').get() as { count: number } | undefined;
+    return row?.count ?? 0;
+  }
+
+  /**
+   * Rehydrates the SQLite database from stored disk pages in StorageEngine.
+   * Wraps all indexing in a single transaction for sub-50ms execution.
+   */
+  public rehydrateFromStorage(storage: { listPages(): AgentWikiPage[]; getPagePath(id: string): string }): number {
+    const pages = storage.listPages();
+    if (pages.length === 0) {
+      return 0;
+    }
+
+    this.db.exec('BEGIN TRANSACTION;');
+    try {
+      for (const page of pages) {
+        this.indexPage(page, storage.getPagePath(page.metadata.id));
+      }
+      this.db.exec('COMMIT;');
+      return pages.length;
+    } catch (err) {
+      this.db.exec('ROLLBACK;');
+      throw err;
+    }
+  }
+
+  /**
    * Indexes an AgentWikiPage into SQLite tables and FTS5 virtual table.
    */
   public indexPage(page: AgentWikiPage, filePath: string): void {

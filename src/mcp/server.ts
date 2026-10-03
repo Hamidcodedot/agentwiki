@@ -190,6 +190,13 @@ export async function startStdioServer(
   const indexer = new IndexerEngine(dbPath);
   indexer.init();
 
+  // Fresh Git Checkout Self-Healing:
+  // If the SQLite database is empty but committed markdown pages exist on disk,
+  // automatically re-hydrate the index so Cursor/Claude Code are never blind on a fresh clone.
+  if (indexer.getEntityCount() === 0) {
+    indexer.rehydrateFromStorage(storage);
+  }
+
   const server = createAgentWikiMcpServer(storage, indexer);
   const transport = new StdioServerTransport();
 
