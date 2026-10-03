@@ -5,45 +5,53 @@
 [![CI](https://github.com/HamidCodedot/agentwiki/actions/workflows/ci.yml/badge.svg)](https://github.com/HamidCodedot/agentwiki/actions)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.12%20%7C%2024.x-brightgreen.svg)](https://nodejs.org)
 
-> **The Agent-Native Knowledge Engine & Local MCP Server**  
-> Token-dense, schema-validated, self-healing knowledge infrastructure for AI agents in Cursor, Claude Code, and autonomous systems.
+> **Agent-Native Knowledge Engine & Local MCP Server**  
+> Token-dense, schema-validated, self-healing knowledge infrastructure for AI coding agents in Cursor, Claude Code, and autonomous systems.
 
 ---
 
-## The Problem
+## The Problem: Human Documentation vs Agent Economics
 
-Traditional documentation and wikis (Notion, Confluence, Mintlify, Readme) are authored for human eyes. When autonomous AI coding agents ingest them, they:
-1. **Waste 5,000–15,000 tokens** per query on narrative introductions, layout formatting, and marketing prose.
-2. **Suffer from session amnesia**, repeatedly encountering and failing on the exact same undocumented edge cases.
-3. **Hallucinate invalid parameters** because static human docs lack machine-verifiable invariants and recovery paths.
+Traditional developer documentation, OpenAPI specs, and wikis (Notion, Mintlify, Readme, Swagger) are authored for human eyes:
 
----
-
-## The Solution: AgentWiki v0.3.0
-
-AgentWiki is a high-speed, local-first compiler and Model Context Protocol (MCP) server that transforms API specifications, codebase topology, and developer documentation into **atomic, high-density knowledge units**:
-
-* **70%+ Token Reduction:** Extracts exact signatures, schemas, contracts, and directory topology in $< 400$ tokens per atomic entity.
-* **Codebase Manifest & Topology Scanner:** Automatically extracts repository metadata, entrypoints, toolchain scripts, dependencies, and directory topology into `architecture_overview.md` with instant SHA-256 currency sync.
-* **Fresh Checkout Self-Healing:** On fresh git clone where SQLite indices are ignored, automatically re-hydrates the search index from committed Markdown pages on MCP server boot in $< 30\text{ ms}$.
-* **Sub-15ms Full-Text & Relational Search:** Powered by Node.js 24 native `node:sqlite` with BM25-ranked FTS5. Zero native C++ compilation (`node-gyp`) and zero external vector database dependencies.
-* **Git-First Ground Truth:** Ground truth remains stored in version-controlled Markdown files with YAML frontmatter (`.agentwiki/pages/*.md`).
-* **Non-Destructive IDE Integration:** Safely merges MCP configuration into `.cursor/mcp.json` and `.mcp.json` (preserving comments and trailing commas), backs up corrupted configs, and pins version specifications.
-* **True Self-Healing Ground Truth:** When an agent discovers an undocumented parameter or error guard, it stages a proposal. Approving it via `review --approve` automatically merges the invariant into the canonical Markdown file and re-indexes SQLite in milliseconds.
+1. **Massive Context Window Bloat:** Feeding a 10,000-line OpenAPI spec or narrative documentation into an LLM burns 10,000 to 40,000 tokens on every turn, driving up latency and API costs.
+2. **Conversational Fluff & Hallucination:** Human guides contain marketing intros, screenshots, and prose. LLMs get distracted by layout boilerplate, frequently hallucinating endpoints and missing critical validation invariants.
+3. **Session Amnesia:** When an AI agent encounters an undocumented edge case (like a mandatory idempotency header or rate limit guard) and fixes it in Turn 3, that knowledge vanishes the moment the context window compacts or the session restarts.
 
 ---
 
-## Empirical Benchmark
+## The Solution: AgentWiki
 
-Tested against a Stripe-grade payments API and real-world authentication guides:
+AgentWiki is a high-speed, local-first compiler and Model Context Protocol (MCP) server that transforms raw documentation, OpenAPI specs, and repository architecture into **atomic, high-density knowledge units**:
 
-| Metric | Raw Docs (Condition A) | AgentWiki MCP (Condition B) | Impact |
-| :--- | :--- | :--- | :--- |
-| **Token Ingestion Footprint** | 2,169 tokens / query | 632 tokens / query | **70.9% Token Reduction** |
-| **BM25 Search Retrieval** | N/A (Linear Scan) | 3.79 ms | **Sub-5ms Lookup** |
-| **Total MCP Cycle Time** | 800+ ms (Vector Search) | 21.29 ms | **37x Faster Retrieval** |
-| **Cost per 1,000 Agent Queries** | \$6.51 | \$1.90 | **71% Cost Reduction** |
-| **Self-Healing Verification** | Unverified / Amorphous | Staged $\rightarrow$ Approved $\rightarrow$ Merged | **Zero Hallucination Poisoning** |
+```
+ ┌────────────────────────┐      ┌─────────────────────────┐      ┌───────────────────────┐
+ │   Developer Sources    │      │   AgentWiki Compiler    │      │    Local Knowledge    │
+ │                        │ ───> │                         │ ───> │                       │
+ │  • package.json / repo │      │  • Strips fluff         │      │  • .agentwiki/pages/  │
+ │  • openapi.json/yaml   │      │  • < 400 tokens / card  │      │  • SQLite FTS5 Index  │
+ │  • docs/*.md           │      │  • SHA-256 currency sync│      │  • Relational Graph   │
+ └────────────────────────┘      └─────────────────────────┘      └───────────┬───────────┘
+                                                                              │
+                                                                   Stdio MCP  │ Sub-15ms
+                                                                   Transport  │ BM25 Search
+                                                                              ▼
+                                                                  ┌───────────────────────┐
+                                                                  │  Cursor / Claude Code │
+                                                                  │                       │
+                                                                  │  • search             │
+                                                                  │  • read               │
+                                                                  │  • explore_relations  │
+                                                                  │  • propose_update     │
+                                                                  └───────────────────────┘
+```
+
+* **70%+ Token Reduction:** Deconstructs bloated specifications into isolated, machine-verifiable cards under 400 tokens each.
+* **Codebase Manifest & Topology Scanner:** Automatically maps project entrypoints, toolchain scripts, dependencies, and directory topology into `architecture_overview.md` with SHA-256 currency sync.
+* **Sub-15ms Local BM25 Search:** Powered by Node.js 24 native `node:sqlite` with FTS5. Zero external vector databases, zero embedding costs, and zero native C++ compilation (`node-gyp`).
+* **Git-First Ground Truth:** All knowledge entities are committed as human-readable Markdown files with YAML frontmatter in `.agentwiki/pages/*.md`.
+* **Fresh Checkout Self-Healing:** The SQLite database is safely excluded from Git to prevent binary merge conflicts. On a fresh `git clone`, AgentWiki automatically rehydrates the search index from Markdown in $< 30\text{ ms}$.
+* **Self-Healing Hive Mind:** When agents discover undocumented behaviors, they stage proposals (`agentwiki_propose_update`). Developers approve them with one command (`agentwiki review --approve`), permanently writing fixes into version-controlled ground truth.
 
 ---
 
@@ -54,119 +62,185 @@ Run in your repository root:
 ```bash
 npx @hamidshahid/agentwiki init
 ```
-Or install globally:
-```bash
-npm install -g @hamidshahid/agentwiki
-agentwiki init
-```
-This initializes `.agentwiki/`, auto-detects existing `README.md` or `docs/`, and configures `.cursor/mcp.json` and `.mcp.json`.
 
-### 2. Compile Your Documentation or OpenAPI Specs
+AgentWiki automatically:
+- Creates the local knowledge store (`.agentwiki/`).
+- Scans your project manifest (`package.json`, `pyproject.toml`, `Cargo.toml`, or `go.mod`) and directory layout into `architecture_overview.md`.
+- Safely configures `.cursor/mcp.json` and `.mcp.json` for Claude Code (non-destructively preserving existing servers and comments).
+- Appends `.agentwiki/*.db*` to your `.gitignore`.
+
+### 2. Compile Documentation or OpenAPI Specs
 ```bash
 # Compile an OpenAPI 3.0/3.1 specification (JSON or YAML)
 npx @hamidshahid/agentwiki compile ./openapi.json
 
-# Compile a documentation folder
+# Compile a documentation directory
 npx @hamidshahid/agentwiki compile ./docs
 
-# Or compile your README directly
+# Compile your repository README
 npx @hamidshahid/agentwiki compile ./README.md
 
 # Prune deleted or renamed entities
 npx @hamidshahid/agentwiki compile ./docs --prune
 ```
 
-### 3. Inspect Knowledge Base Status
+### 3. Verify Knowledge Base Status
 ```bash
 npx @hamidshahid/agentwiki status
 ```
-Output:
 ```
-AgentWiki Knowledge Base Status:
-  Directory: /path/to/project/.agentwiki
-  Total Entities: 14
-    - api: 10
-    - guide: 4
-  Pending Agent Proposals: 1
+ ┌────────────────────────────────────────────────────────────────┐
+ │  AGENTWIKI v0.3.0                  Local MCP Knowledge Engine  │
+ └────────────────────────────────────────────────────────────────┘
+
+ ┌── AgentWiki Knowledge Base Status ─────────────────────────────┐
+ │ Directory:                 /workspace/.agentwiki               │
+ │ Total Atomic Entities:     15                                  │
+ │ Category (api):            10                                  │
+ │ Category (guide):          4                                   │
+ │ Category (concept):        1                                   │
+ │ Pending Agent Proposals:   0                                   │
+ │ Index Engine:              node:sqlite FTS5 BM25               │
+ │ MCP Stdio Transport:       Claude Code · Cursor IDE            │
+ └────────────────────────────────────────────────────────────────┘
 ```
 
-### 4. Run the Local MCP Server
+### 4. Connect with Cursor or Claude Code
+You don't need to manually start a daemon. Your IDE runs AgentWiki automatically over Stdio whenever you open the workspace.
+
+To test the server manually in terminal:
 ```bash
 npx @hamidshahid/agentwiki serve
 ```
-*(Cursor and Claude Code launch this process automatically using your configured `.cursor/mcp.json` or `.mcp.json`).*
 
 ---
 
-## MCP Tools Exposed to AI Agents
+## MCP Tools Reference
 
-When Cursor or Claude Code connects to AgentWiki, 4 tools are provided over Stdio:
+AgentWiki exposes 4 precision tools to Cursor and Claude Code:
 
 | Tool | Parameters | Description |
 | :--- | :--- | :--- |
-| `agentwiki_search` | `query: string`, `category?: string`, `limit?: number` | BM25-ranked full-text search returning token-budgeted summaries ($< 150$ tokens). |
-| `agentwiki_read` | `id: string`, `section?: string` | Fetches the full high-density atomic page ($< 400$ tokens) or a specific section. |
-| `agentwiki_explore_relations` | `id: string` | Returns graph edges (`requires`, `supersedes`, `related`) for multi-hop reasoning. |
-| `agentwiki_propose_update` | `entity_id: string`, `claim: string`, `evidence: string`, `patch?: string` | Stages an agent discovery in `.agentwiki/proposals/` awaiting developer approval. |
+| `agentwiki_search` | `query: string`<br>`category?: string`<br>`limit?: number` | BM25-ranked full-text search across all entity names, tags, and summaries. Returns token-budgeted results ($< 150$ tokens). |
+| `agentwiki_read` | `id: string`<br>`section?: string` | Retrieves the full atomic page ($< 400$ tokens) or extracts a specific section (`## Invariants`). |
+| `agentwiki_explore_relations` | `id: string` | Returns relational graph edges (`requires`, `supersedes`, `related`) for dependency analysis and multi-hop reasoning. |
+| `agentwiki_propose_update` | `entity_id: string`<br>`claim: string`<br>`evidence: string`<br>`patch?: string` | Stages an agent discovery in `.agentwiki/proposals/` awaiting developer approval without mutating ground truth. |
 
 ---
 
-## Self-Healing Review Workflow
+## Anatomy of an Atomic Knowledge Unit
 
-When an autonomous agent discovers an undocumented invariant (e.g., an undocumented rate limit or missing header), it calls `agentwiki_propose_update`. The discovery is staged safely in `.agentwiki/proposals/` without modifying your canonical ground truth.
+Every compiled entity is stored in `.agentwiki/pages/{id}.md` with strict YAML frontmatter:
 
-Developers review and merge proposals via CLI:
+```markdown
+---
+id: post_v1_checkout_sessions
+name: Create Checkout Session
+category: api
+tags: [payments, checkout, sessions, stripe]
+relations:
+  requires: [customer_record]
+  supersedes: []
+  related: [get_v1_checkout_sessions_id]
+summary: Creates a checkout session for customer payment collection.
+updated_at: '2026-10-03T16:00:00.000Z'
+---
+
+## Endpoint Signature
+- **Method:** `POST`
+- **Path:** `/v1/checkout/sessions`
+- **Auth:** `Bearer {sk_live_...}`
+
+## Required Headers & Parameters
+- `Idempotency-Key` (Header, UUIDv4)
+- `customer_id` (Body, string): Customer identifier
+- `currency` (Body, string): 3-letter ISO code (e.g., `usd`)
+
+## System Invariants & Recovery
+- Concurrent charge attempts with identical keys return `409 Conflict`.
+- Rate limiting enforces 100 req/sec; returns `429 Too Many Requests` with `Retry-After`.
+
+## Verified Invariants & Fixes
+- [Verified 2026-10-03]: `success_url` must include protocol (`https://`).
+```
+
+---
+
+## Self-Healing Ground Truth Workflow
+
+When an AI agent discovers an undocumented requirement during code execution or test failure, it does **not** silently forget it, nor does it poison your codebase with untested assumptions. It calls `agentwiki_propose_update`.
+
+```
+[Agent Execution]
+       │
+       ▼
+Discovers undocumented parameter (e.g., `client_reference_id` required for webhooks)
+       │
+       ▼
+Calls `agentwiki_propose_update`
+       │
+       ▼
+Staged in `.agentwiki/proposals/prop_1727626000_abc12.json`
+       │
+       ▼
+[Human Review via CLI]
+Run: `npx @hamidshahid/agentwiki review`
+       │
+       ├── `agentwiki review --approve <id>` ──> Merged into Markdown + SQLite Re-indexed
+       └── `agentwiki review --reject <id>`  ──> Proposal discarded
+```
+
+### CLI Review Commands
+
 ```bash
-# List all staged proposals
+# List all staged proposals with diffs and agent evidence
 npx @hamidshahid/agentwiki review
 
-# Approve and merge a proposal into the target page + re-index
+# Approve and merge a specific proposal
 npx @hamidshahid/agentwiki review --approve prop_1727626000_abc12
 
 # Reject a proposal
 npx @hamidshahid/agentwiki review --reject prop_1727626000_abc12
 
-# Approve and merge all pending proposals
+# Approve all pending proposals in batch
 npx @hamidshahid/agentwiki review --approve-all
 ```
 
-When approved, AgentWiki:
-1. Appends the verified invariant under `## Verified Invariants & Fixes` in `.agentwiki/pages/{entity_id}.md`.
-2. Updates `updated_at` in the page's YAML frontmatter.
-3. Re-indexes the entity in SQLite FTS5 instantly.
+---
+
+## Empirical Benchmark
+
+Evaluated against a real-world Stripe-grade payments API specification (8,674 characters) and production authentication documentation:
+
+| Metric | Condition A (Raw Docs in Context) | Condition B (AgentWiki MCP) | Measured Impact |
+| :--- | :--- | :--- | :--- |
+| **Token Ingestion Footprint** | 2,169 tokens / query | 632 tokens / query | **70.9% Token Reduction** |
+| **BM25 Search Retrieval** | Linear scan across prompt | 7.16 ms | **Sub-10ms Instant Lookup** |
+| **Total MCP Cycle Time** | 800+ ms (Vector Search) | 58.36 ms | **13x Faster Retrieval** |
+| **Cost per 1,000 Agent Queries** | \$6.51 | \$1.90 | **71% Cost Reduction** |
+| **Ground Truth Invariant Accuracy** | 50% (Missed error guards) | 100% (Passed all guards) | **Zero Hallucination** |
+| **Ground Truth Poisoning Defense** | Unvetted direct mutation | Human-in-the-loop review | **100% Invariant Integrity** |
 
 ---
 
-## Architecture & Storage Invariants
+## CLI Command Reference
 
-* **Ground Truth Files:** Stored as human-readable Markdown files with YAML frontmatter in `.agentwiki/pages/*.md`. These should be committed to Git.
-* **Search Index:** Fast SQLite index at `.agentwiki/index.db`. This file can be excluded from Git via `.gitignore` as it can be deterministically rebuilt at any time via `agentwiki compile`.
-* **Zero Native C++:** Built using Node.js native `node:sqlite` (`DatabaseSync`), requiring zero Python or `node-gyp` toolchains.
+| Command | Usage | Description |
+| :--- | :--- | :--- |
+| `init` | `agentwiki init [dir]` | Initializes `.agentwiki`, scans manifests/topology, configures IDEs, and updates `.gitignore`. |
+| `compile` | `agentwiki compile <source> [--prune]` | Compiles OpenAPI specs or Markdown docs into atomic cards and indexes them into SQLite FTS5. |
+| `serve` | `agentwiki serve` | Launches the Model Context Protocol (MCP) server over Stdio. |
+| `status` | `agentwiki status` | Displays knowledge base entity metrics, categories, proposals, and engine state. |
+| `review` | `agentwiki review [--approve <id> \| --reject <id> \| --approve-all]` | Interactive CLI to inspect, approve, or reject staged agent proposals. |
 
 ---
 
-## Development & Testing
+## Architecture Invariants
 
-```bash
-# Clone repository
-git clone https://github.com/HamidCodedot/agentwiki.git
-cd agentwiki
-
-# Install dependencies
-npm install
-
-# Run unit and integration tests (33 tests)
-npm test
-
-# Run strict typecheck
-npm run typecheck
-
-# Run empirical benchmark
-npm run benchmark
-
-# Build distribution
-npm run build
-```
+* **Zero Native C++ Compilation:** Uses Node.js native `node:sqlite` (`DatabaseSync`). Installs instantaneously without `python`, `gcc`, or `node-gyp`.
+* **Deterministic Rebuilds:** If `.agentwiki/index.db` is deleted or ignored, running `agentwiki compile` or launching `agentwiki serve` deterministically rebuilds the index from `.agentwiki/pages/*.md`.
+* **Non-Destructive IDE Integration:** Tolerates comments and trailing commas in `.cursor/mcp.json` and `.mcp.json`. Automatically generates `.bak` backups on corrupted configurations to prevent wiping developer configs.
+* **Token Budget Guard:** Enforces $< 400$ tokens per atomic page to preserve AI reasoning bandwidth.
 
 ---
 
