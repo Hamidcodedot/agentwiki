@@ -19,15 +19,17 @@ Traditional documentation and wikis (Notion, Confluence, Mintlify, Readme) are a
 
 ---
 
-## The Solution: AgentWiki v0.2.0
+## The Solution: AgentWiki v0.3.0
 
-AgentWiki is a high-speed, local-first compiler and Model Context Protocol (MCP) server that transforms API specifications and developer documentation into **atomic, high-density knowledge units**:
+AgentWiki is a high-speed, local-first compiler and Model Context Protocol (MCP) server that transforms API specifications, codebase topology, and developer documentation into **atomic, high-density knowledge units**:
 
-* **70%+ Token Compression Ratio (TCR):** Extracts exact signatures, schemas, and constraints in $< 400$ tokens per atomic entity.
+* **70%+ Token Reduction:** Extracts exact signatures, schemas, contracts, and directory topology in $< 400$ tokens per atomic entity.
+* **Codebase Manifest & Topology Scanner:** Automatically extracts repository metadata, entrypoints, toolchain scripts, dependencies, and directory topology into `architecture_overview.md` with instant SHA-256 currency sync.
+* **Fresh Checkout Self-Healing:** On fresh git clone where SQLite indices are ignored, automatically re-hydrates the search index from committed Markdown pages on MCP server boot in $< 30\text{ ms}$.
 * **Sub-15ms Full-Text & Relational Search:** Powered by Node.js 24 native `node:sqlite` with BM25-ranked FTS5. Zero native C++ compilation (`node-gyp`) and zero external vector database dependencies.
 * **Git-First Ground Truth:** Ground truth remains stored in version-controlled Markdown files with YAML frontmatter (`.agentwiki/pages/*.md`).
+* **Non-Destructive IDE Integration:** Safely merges MCP configuration into `.cursor/mcp.json` and `.mcp.json` (preserving comments and trailing commas), backs up corrupted configs, and pins version specifications.
 * **True Self-Healing Ground Truth:** When an agent discovers an undocumented parameter or error guard, it stages a proposal. Approving it via `review --approve` automatically merges the invariant into the canonical Markdown file and re-indexes SQLite in milliseconds.
-* **Sub-100ms Fast MCP Startup:** Automatically detects local package installations to run direct Node binaries with `${workspaceFolder}` anchoring, eliminating `npx` network cold-start delays.
 
 ---
 

@@ -22,14 +22,14 @@ const program = new Command();
 program
   .name('agentwiki')
   .description('Agent-Native Knowledge Engine & Local MCP Server')
-  .version('0.2.0');
+  .version('0.3.0');
 
 // Command: init
 program
   .command('init [dir]')
   .description('Initialize AgentWiki in the current project and configure Cursor/Claude Code')
   .action((dir) => {
-    renderBanner('0.2.0');
+    renderBanner('0.3.0');
     console.log();
 
     const targetDir = dir ? path.resolve(dir) : process.cwd();
@@ -178,7 +178,7 @@ program
     const proposals = storage.listProposals();
     const pendingProposals = proposals.filter((p) => p.status === 'pending');
 
-    renderBanner('0.2.0');
+    renderBanner('0.3.0');
     console.log();
 
     const categoryCounts: Record<string, number> = {};

@@ -131,12 +131,12 @@ describe('Real-World A/B Benchmark Experiment: Raw Docs vs AgentWiki', () => {
     console.log('------------------------------------------------------------------------');
     console.log('1. TOKEN FOOTPRINT & CONTEXT ECONOMICS');
     console.log('------------------------------------------------------------------------');
-    console.log(`Condition A (Raw Docs Ingestion):   ${rawTokens} tokens per query`);
-    console.log(`Condition B (AgentWiki MCP Tools):  ${agentWikiTotalTokens} tokens per query (Search: ${searchTokens}, Read: ${readTokens}, Relations: ${relTokens})`);
-    console.log(`TOKEN COMPRESSION RATIO (TCR):      ${(tokenCompressionRatio * 100).toFixed(1)}% TOKEN REDUCTION`);
-    console.log(`Cost per 1,000 Agent Queries (Raw):       $${rawCostPer1kQueries.toFixed(2)}`);
-    console.log(`Cost per 1,000 Agent Queries (AgentWiki): $${agentWikiCostPer1kQueries.toFixed(2)}`);
-    console.log(`NET DOLLAR SAVINGS PER 1,000 QUERIES:     $${savingsPer1kQueries.toFixed(2)} (${(tokenCompressionRatio * 100).toFixed(0)}% cheaper)\n`);
+    console.log(`Condition A (Full Raw Docs in Context):     ${rawTokens} tokens`);
+    console.log(`Condition B (Targeted AgentWiki MCP Query): ${agentWikiTotalTokens} tokens (Search: ${searchTokens}, Read: ${readTokens}, Relations: ${relTokens})`);
+    console.log(`TOKEN REDUCTION (vs raw docs dump):         ${(tokenCompressionRatio * 100).toFixed(1)}% TOKEN REDUCTION`);
+    console.log(`Cost per 1,000 Ingestions (Raw Docs Dump):  $${rawCostPer1kQueries.toFixed(2)}`);
+    console.log(`Cost per 1,000 Queries (AgentWiki MCP):     $${agentWikiCostPer1kQueries.toFixed(2)}`);
+    console.log(`NET DOLLAR SAVINGS PER 1,000 SESSIONS:      $${savingsPer1kQueries.toFixed(2)} (${(tokenCompressionRatio * 100).toFixed(0)}% cheaper)\n`);
 
     console.log('------------------------------------------------------------------------');
     console.log('2. RETRIEVAL SPEED & LATENCY');

@@ -70,7 +70,7 @@ export const badges = {
 /**
  * Render the eye-catching Brand Header Banner
  */
-export function renderBanner(version = '0.2.0'): void {
+export function renderBanner(version = '0.3.0'): void {
   const width = 64;
   const line = '─'.repeat(width);
 

@@ -46,7 +46,7 @@ export function setupIde(projectDir: string = process.cwd()): IdeSetupResult {
       }
     : {
         command: 'npx',
-        args: ['-y', '@hamidshahid/agentwiki@^0.2.0', 'serve'],
+        args: ['-y', '@hamidshahid/agentwiki@^0.3.0', 'serve'],
         cwd: '${workspaceFolder}',
       };
 

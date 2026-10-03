@@ -16,7 +16,7 @@ export function createAgentWikiMcpServer(
 ): McpServer {
   const server = new McpServer({
     name: 'agentwiki',
-    version: '0.2.0',
+    version: '0.3.0',
   });
 
   // Tool 1: agentwiki_search
