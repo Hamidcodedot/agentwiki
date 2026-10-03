@@ -4,6 +4,7 @@ import { z } from 'zod';
 import * as path from 'node:path';
 import { StorageEngine } from '../core/storage.js';
 import { IndexerEngine } from '../core/indexer.js';
+import { syncManifestIfChanged } from '../core/compiler.js';
 import { PageCategorySchema } from '../core/types.js';
 
 /**
@@ -66,6 +67,11 @@ export function createAgentWikiMcpServer(
       section: z.string().optional().describe('Optional section header name to extract'),
     },
     async ({ id, section }) => {
+      if (id === 'architecture_overview') {
+        const projectDir = path.dirname(storage.baseDir);
+        syncManifestIfChanged(projectDir, storage, indexer);
+      }
+
       const page = storage.loadPage(id);
 
       if (!page) {
@@ -196,6 +202,12 @@ export async function startStdioServer(
   if (indexer.getEntityCount() === 0) {
     indexer.rehydrateFromStorage(storage);
   }
+
+  // Codebase Manifest & Topology Currency Sync:
+  // Inspect project manifest (package.json, pyproject.toml, etc.) in the workspace root.
+  // If dependencies or scripts changed, update architecture_overview.md automatically (< 10ms).
+  const projectDir = path.dirname(storage.baseDir);
+  syncManifestIfChanged(projectDir, storage, indexer);
 
   const server = createAgentWikiMcpServer(storage, indexer);
   const transport = new StdioServerTransport();

@@ -5,7 +5,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { StorageEngine } from '../src/core/storage.js';
 import { IndexerEngine } from '../src/core/indexer.js';
-import { compileSource } from '../src/core/compiler.js';
+import { compileSource, syncManifestIfChanged } from '../src/core/compiler.js';
 import { setupIde, ensureGitignore } from '../src/setup/ide.js';
 import { startStdioServer } from '../src/mcp/server.js';
 import {
@@ -41,12 +41,20 @@ program
     const dbPath = path.join(agentWikiDir, 'index.db');
     const indexer = new IndexerEngine(dbPath);
     indexer.init();
+
+    // Automatically inspect project manifest & topology on initialization
+    const manifestSync = syncManifestIfChanged(targetDir, storage, indexer);
     indexer.close();
 
     const ideResult = setupIde(targetDir);
 
     console.log(` ${badges.ok()}  ${colors.bold('Initialized AgentWiki store')}`);
     console.log(`       ${colors.zinc('Path:')} ${colors.white(agentWikiDir)}`);
+
+    if (manifestSync.updated && manifestSync.page) {
+      console.log(` ${badges.ok()}  ${colors.bold('Scanned codebase manifest & topology')}`);
+      console.log(`       ${colors.zinc('Entity:')} ${colors.white('architecture_overview')} (${colors.cyan('.agentwiki/pages/architecture_overview.md')})`);
+    }
 
     if (ideResult.cursorConfigured && ideResult.cursorPath) {
       console.log(` ${badges.mcp()}  ${colors.bold('Cursor IDE configured')}`);

@@ -4,6 +4,7 @@ import { StorageEngine } from './storage.js';
 import { IndexerEngine } from './indexer.js';
 import { parseOpenApi } from '../parsers/openapi.js';
 import { parseMarkdownDoc } from '../parsers/markdown.js';
+import { parseProjectManifest } from '../parsers/manifest.js';
 import { AgentWikiPage } from './types.js';
 
 export interface CompileOptions {
@@ -16,6 +17,31 @@ export interface CompileResult {
   prunedCount: number;
   warnings: string[];
   pages: AgentWikiPage[];
+}
+
+/**
+ * Automatically inspects project manifests (package.json, pyproject.toml, etc.)
+ * and keeps the architecture_overview page synchronized with changes.
+ */
+export function syncManifestIfChanged(
+  projectDir: string,
+  storage: StorageEngine,
+  indexer: IndexerEngine
+): { updated: boolean; page?: AgentWikiPage } {
+  const page = parseProjectManifest(projectDir);
+  if (!page) {
+    return { updated: false };
+  }
+
+  const existingPage = storage.loadPage(page.metadata.id);
+  // If content is identical, skip writing to avoid redundant disk churn
+  if (existingPage && existingPage.content === page.content) {
+    return { updated: false, page: existingPage };
+  }
+
+  storage.savePage(page);
+  indexer.indexPage(page, storage.getPagePath(page.metadata.id));
+  return { updated: true, page };
 }
 
 /**
@@ -35,15 +61,21 @@ export function compileSource(
   const stat = fs.statSync(resolved);
   const files: string[] = [];
 
-  if (stat.isFile()) {
-    files.push(resolved);
-  } else if (stat.isDirectory()) {
-    collectFiles(resolved, files);
-  }
-
   let filesProcessed = 0;
   const compiledPages: AgentWikiPage[] = [];
   const warnings: string[] = [];
+
+  if (stat.isFile()) {
+    files.push(resolved);
+  } else if (stat.isDirectory()) {
+    // 1. Ingest repository manifests and topology map if present
+    const manifestSync = syncManifestIfChanged(resolved, storage, indexer);
+    if (manifestSync.updated && manifestSync.page) {
+      filesProcessed++;
+      compiledPages.push(manifestSync.page);
+    }
+    collectFiles(resolved, files);
+  }
 
   for (const filePath of files) {
     const ext = path.extname(filePath).toLowerCase();
