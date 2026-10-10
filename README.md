@@ -5,251 +5,131 @@
 [![CI](https://github.com/HamidCodedot/agentwiki/actions/workflows/ci.yml/badge.svg)](https://github.com/HamidCodedot/agentwiki/actions)
 [![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A522.12%20%7C%2024.x-brightgreen.svg)](https://nodejs.org)
 
-> **Agent-Native Knowledge Engine & Local MCP Server**  
-> Token-dense, schema-validated, self-healing knowledge infrastructure for AI coding agents in Cursor, Claude Code, and autonomous systems.
+> Local MCP server and CLI utility for indexing curated API specs and auditing agent rule files.
+
+AgentWiki provides two tools for projects using Cursor, Claude Code, or other MCP-compatible coding agents:
+
+1. **Agent Rule Linter (`agentwiki doctor`)**: Scans `CLAUDE.md`, `AGENTS.md`, and `.cursor/rules` for dead file paths and stale `npm run` commands that cause agents to fail or hallucinate.
+2. **Local MCP Search (`agentwiki compile` + `agentwiki serve`)**: Indexes OpenAPI specs (3.0/3.1) and Markdown documentation into local Markdown files and an in-process SQLite FTS5 search index. Agents query relevant endpoints on demand over MCP instead of reading entire multi-thousand-line documentation files into context.
 
 ---
 
-## The Problem: Human Documentation vs Agent Economics
+## What AgentWiki Is and Is Not
 
-Traditional developer documentation, OpenAPI specs, and wikis (Notion, Mintlify, Readme, Swagger) are authored for human eyes:
-
-1. **Massive Context Window Bloat:** Feeding a 10,000-line OpenAPI spec or narrative documentation into an LLM burns 10,000 to 40,000 tokens on every turn, driving up latency and API costs.
-2. **Conversational Fluff & Hallucination:** Human guides contain marketing intros, screenshots, and prose. LLMs get distracted by layout boilerplate, frequently hallucinating endpoints and missing critical validation invariants.
-3. **Session Amnesia:** When an AI agent encounters an undocumented edge case (like a mandatory idempotency header or rate limit guard) and fixes it in Turn 3, that knowledge vanishes the moment the context window compacts or the session restarts.
+| AgentWiki Is | AgentWiki Is Not |
+| :--- | :--- |
+| A local full-text search layer for **curated OpenAPI specs and Markdown docs** | A general codebase-understanding engine (it does not parse source code ASTs) |
+| A fast linter for broken file paths and script names in rule files | A replacement for IDE code search or git grep |
+| A file-based proposal workflow (`propose_update` + `review`) to stage notes for human review | An autonomous AI that mutates code without human approval |
+| An open-source, local-first utility using Node.js native `node:sqlite` | A cloud service or hosted vector database |
 
 ---
 
-## The Solution: AgentWiki
+## Quick Start
 
-AgentWiki is a high-speed, local-first compiler and Model Context Protocol (MCP) server that transforms raw documentation, OpenAPI specs, and repository architecture into **atomic, high-density knowledge units**:
-
-```
- ┌────────────────────────┐      ┌─────────────────────────┐      ┌───────────────────────┐
- │   Developer Sources    │      │   AgentWiki Compiler    │      │    Local Knowledge    │
- │                        │ ───> │                         │ ───> │                       │
- │  • package.json / repo │      │  • Strips fluff         │      │  • .agentwiki/pages/  │
- │  • openapi.json/yaml   │      │  • < 400 tokens / card  │      │  • SQLite FTS5 Index  │
- │  • docs/*.md           │      │  • Auto currency sync   │      │  • Relational Graph   │
- └────────────────────────┘      └─────────────────────────┘      └───────────┬───────────┘
-                                                                              │
-                                                                   Stdio MCP  │ Sub-15ms
-                                                                   Transport  │ BM25 Search
-                                                                              ▼
-                                                                  ┌───────────────────────┐
-                                                                  │  Cursor / Claude Code │
-                                                                  │                       │
-                                                                  │  • search             │
-                                                                  │  • read               │
-                                                                  │  • explore_relations  │
-                                                                  │  • propose_update     │
-                                                                  └───────────────────────┘
+### 1. Audit Existing Agent Rule Files
+Find broken paths or stale commands in your existing agent rules:
+```bash
+npx @hamidshahid/agentwiki doctor
 ```
 
- * **70%+ Token Reduction:** Deconstructs bloated specifications into isolated, machine-verifiable cards under 400 tokens each.
-* **Codebase Manifest & Topology Scanner:** Automatically maps project entrypoints, toolchain scripts, dependencies, and directory topology into `architecture_overview.md` with automatic currency sync on server start.
-* **Sub-15ms Local BM25 Search:** Powered by Node.js 24 native `node:sqlite` with FTS5. Zero external vector databases, zero embedding costs, and zero native C++ compilation (`node-gyp`).
-* **Git-First Ground Truth:** All knowledge entities are committed as human-readable Markdown files with YAML frontmatter in `.agentwiki/pages/*.md`.
-* **Fresh Checkout Self-Healing:** The SQLite database is safely excluded from Git to prevent binary merge conflicts. On a fresh `git clone`, AgentWiki automatically rehydrates the search index from Markdown in $< 30\text{ ms}$.
-* **Self-Healing Hive Mind:** When agents discover undocumented behaviors, they stage proposals (`agentwiki_propose_update`). Developers approve them with one command (`agentwiki review --approve`), permanently writing fixes into version-controlled ground truth.
-
----
-
-## Quick Start (Under 60 Seconds)
-
-### 1. Initialize Your Project
-Run in your repository root:
+### 2. Initialize AgentWiki in Your Project
 ```bash
 npx @hamidshahid/agentwiki init
 ```
+This command:
+- Creates `.agentwiki/` for storing compiled Markdown pages.
+- Scans `package.json` (or `pyproject.toml` / `Cargo.toml` / `go.mod`) to create an `architecture_overview.md` page.
+- Configures `.cursor/mcp.json` and `.mcp.json` to register the local MCP server.
+- Excludes `.agentwiki/*.db*` in `.gitignore`.
 
-AgentWiki automatically:
-- Creates the local knowledge store (`.agentwiki/`).
-- Scans your project manifest (`package.json`, `pyproject.toml`, `Cargo.toml`, or `go.mod`) and directory layout into `architecture_overview.md`.
-- Safely configures `.cursor/mcp.json` and `.mcp.json` for Claude Code (non-destructively preserving existing servers and comments).
-- Appends `.agentwiki/*.db*` to your `.gitignore`.
-
-### 2. Compile Documentation or OpenAPI Specs
+### 3. Compile Curated Docs or OpenAPI Specs
 ```bash
-# Compile an OpenAPI 3.0/3.1 specification (JSON or YAML)
+# Compile an OpenAPI specification (JSON or YAML)
 npx @hamidshahid/agentwiki compile ./openapi.json
 
-# Compile a documentation directory
+# Compile Markdown documentation
 npx @hamidshahid/agentwiki compile ./docs
-
-# Compile your repository README
-npx @hamidshahid/agentwiki compile ./README.md
-
-# Prune deleted or renamed entities
-npx @hamidshahid/agentwiki compile ./docs --prune
 ```
 
-### 3. Verify Knowledge Base Status
-```bash
-npx @hamidshahid/agentwiki status
-```
-```
- ┌────────────────────────────────────────────────────────────────┐
- │  AGENTWIKI v0.3.0                  Local MCP Knowledge Engine  │
- └────────────────────────────────────────────────────────────────┘
+### 4. Use via MCP in Cursor or Claude Code
+Once configured by `init`, your IDE runs the server automatically over Stdio when you start a session.
 
- ┌── AgentWiki Knowledge Base Status ─────────────────────────────┐
- │ Directory:                 /workspace/.agentwiki               │
- │ Total Atomic Entities:     15                                  │
- │ Category (api):            10                                  │
- │ Category (guide):          4                                   │
- │ Category (concept):        1                                   │
- │ Pending Agent Proposals:   0                                   │
- │ Index Engine:              node:sqlite FTS5 BM25               │
- │ MCP Stdio Transport:       Claude Code · Cursor IDE            │
- └────────────────────────────────────────────────────────────────┘
-```
-
-### 4. Connect with Cursor or Claude Code
-You don't need to manually start a daemon. Your IDE runs AgentWiki automatically over Stdio whenever you open the workspace.
-
-To test the server manually in terminal:
+To test the server directly in terminal:
 ```bash
 npx @hamidshahid/agentwiki serve
 ```
 
 ---
 
-## MCP Tools Reference
+## Commands
 
-AgentWiki exposes 4 precision tools to Cursor and Claude Code:
-
-| Tool | Parameters | Description |
-| :--- | :--- | :--- |
-| `agentwiki_search` | `query: string`<br>`category?: string`<br>`limit?: number` | BM25-ranked full-text search across all entity names, tags, and summaries. Returns token-budgeted results ($< 150$ tokens). |
-| `agentwiki_read` | `id: string`<br>`section?: string` | Retrieves the full atomic page ($< 400$ tokens) or extracts a specific section (`## Invariants`). |
-| `agentwiki_explore_relations` | `id: string` | Returns relational graph edges (`requires`, `supersedes`, `related`) for dependency analysis and multi-hop reasoning. |
-| `agentwiki_propose_update` | `entity_id: string`<br>`claim: string`<br>`evidence: string`<br>`patch?: string` | Stages an agent discovery in `.agentwiki/proposals/` awaiting developer approval without mutating ground truth. |
-
----
-
-## Anatomy of an Atomic Knowledge Unit
-
-Every compiled entity is stored in `.agentwiki/pages/{id}.md` with strict YAML frontmatter:
-
-```markdown
----
-id: post_v1_checkout_sessions
-name: Create Checkout Session
-category: api
-tags: [payments, checkout, sessions, stripe]
-relations:
-  requires: [customer_record]
-  supersedes: []
-  related: [get_v1_checkout_sessions_id]
-summary: Creates a checkout session for customer payment collection.
-updated_at: '2026-10-03T16:00:00.000Z'
----
-
-## Endpoint Signature
-- **Method:** `POST`
-- **Path:** `/v1/checkout/sessions`
-- **Auth:** `Bearer {sk_live_...}`
-
-## Required Headers & Parameters
-- `Idempotency-Key` (Header, UUIDv4)
-- `customer_id` (Body, string): Customer identifier
-- `currency` (Body, string): 3-letter ISO code (e.g., `usd`)
-
-## System Invariants & Recovery
-- Concurrent charge attempts with identical keys return `409 Conflict`.
-- Rate limiting enforces 100 req/sec; returns `429 Too Many Requests` with `Retry-After`.
-
-## Verified Invariants & Fixes
-- [Verified 2026-10-03]: `success_url` must include protocol (`https://`).
-```
-
----
-
-## Self-Healing Ground Truth Workflow
-
-When an AI agent discovers an undocumented requirement during code execution or test failure, it does **not** silently forget it, nor does it poison your codebase with untested assumptions. It calls `agentwiki_propose_update`.
-
-```
-[Agent Execution]
-       │
-       ▼
-Discovers undocumented parameter (e.g., `client_reference_id` required for webhooks)
-       │
-       ▼
-Calls `agentwiki_propose_update`
-       │
-       ▼
-Staged in `.agentwiki/proposals/prop_1727626000_abc12.json`
-       │
-       ▼
-[Human Review via CLI]
-Run: `npx @hamidshahid/agentwiki review`
-       │
-       ├── `agentwiki review --approve <id>` ──> Merged into Markdown + SQLite Re-indexed
-       └── `agentwiki review --reject <id>`  ──> Proposal discarded
-```
-
-### CLI Review Commands
+### `agentwiki doctor [dir]`
+Audits rule files (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`, `.claude/rules/*.md`, `.agentwiki/pages/*.md`) for:
+- **Dead file paths**: Checks if files referenced in backticks or Markdown links actually exist on disk.
+- **Stale scripts**: Checks if `npm run <script>` commands referenced in rules exist in `package.json`.
 
 ```bash
-# List all staged proposals with diffs and agent evidence
+npx @hamidshahid/agentwiki doctor
+```
+
+### `agentwiki compile <source> [--prune]`
+Parses an OpenAPI spec (3.0/3.1) or a directory of Markdown files into individual Markdown files with YAML frontmatter in `.agentwiki/pages/` and indexes them in SQLite FTS5 (`.agentwiki/index.db`).
+
+```bash
+npx @hamidshahid/agentwiki compile ./docs
+```
+
+### `agentwiki status`
+Displays the current count of indexed entities and pending agent proposals.
+
+```bash
+npx @hamidshahid/agentwiki status
+```
+
+### `agentwiki review`
+Reviews and applies or rejects staged agent proposals submitted via `agentwiki_propose_update`.
+
+```bash
+# List pending proposals
 npx @hamidshahid/agentwiki review
 
-# Approve and merge a specific proposal
-npx @hamidshahid/agentwiki review --approve prop_1727626000_abc12
+# Approve and merge a proposal into the target Markdown page
+npx @hamidshahid/agentwiki review --approve <proposal_id>
 
 # Reject a proposal
-npx @hamidshahid/agentwiki review --reject prop_1727626000_abc12
-
-# Approve all pending proposals in batch
-npx @hamidshahid/agentwiki review --approve-all
+npx @hamidshahid/agentwiki review --reject <proposal_id>
 ```
 
 ---
 
-## Empirical Benchmark
+## MCP Tools Exposed to Agents
 
-Evaluated against a Stripe-grade payments API specification (8,674 characters, ~2,169 estimated tokens) and production authentication documentation:
+When connected, AgentWiki provides 4 tools over Stdio:
 
-| Metric | Condition A (Raw Docs Dump) | Condition B (AgentWiki Local MCP) | Measured Result |
-| :--- | :--- | :--- | :--- |
-| **Prompt Ingestion Size** | ~2,169 tokens per prompt | ~632 tokens (Search + Read) | **70.9% Token Reduction** |
-| **FTS5 BM25 Search Latency** | N/A (Linear text scan) | 7.16 ms | **Sub-10ms Lookup** |
-| **Atomic Page Read Latency** | N/A (Full file read) | 50.19 ms | **Targeted Contract Retrieval** |
-| **Staging Safety** | Direct file mutation | Staged in `.agentwiki/proposals/` | **Human-in-the-Loop Review** |
-
-*Note: Token counts are estimated using the standard 4 characters per token heuristic. Latencies measured on Node.js native `node:sqlite` FTS5.*
-
----
-
-## CLI Command Reference
-
-| Command | Usage | Description |
-| :--- | :--- | :--- |
-| `init` | `agentwiki init [dir]` | Initializes `.agentwiki`, scans manifests/topology, configures IDEs, and updates `.gitignore`. |
-| `compile` | `agentwiki compile <source> [--prune]` | Compiles OpenAPI specs or Markdown docs into atomic cards and indexes them into SQLite FTS5. |
-| `doctor` | `agentwiki doctor [dir]` | Audits agent instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, etc.) for broken paths and stale scripts. |
-| `serve` | `agentwiki serve` | Launches the Model Context Protocol (MCP) server over Stdio. |
-| `status` | `agentwiki status` | Displays knowledge base entity metrics, categories, proposals, and engine state. |
-| `review` | `agentwiki review [--approve <id> \| --reject <id> \| --approve-all]` | Interactive CLI to inspect, approve, or reject staged agent proposals. |
+| Tool | Purpose |
+| :--- | :--- |
+| `agentwiki_search` | BM25 full-text keyword search over compiled entities. Returns entity names, IDs, categories, and summaries. |
+| `agentwiki_read` | Retrieves the content of an entity by ID, or extracts a specific `## Header` section. |
+| `agentwiki_explore_relations` | Returns prerequisite, superseding, and related entity links defined in page metadata. |
+| `agentwiki_propose_update` | Stages an agent's note or discovery (with evidence) for an existing entity in `.agentwiki/proposals/` awaiting developer approval. Does not modify ground-truth files directly. |
 
 ---
 
 ## Known Scope & Limitations
 
-* **Curated Documentation & Spec Focus:** AgentWiki is a local search and context-compression layer for curated OpenAPI specs and Markdown guides. It does not parse full repository ASTs or extract code symbols.
-* **Inline OpenAPI Schemas:** The OpenAPI parser handles inline JSON schemas. Remote and external `$ref` resolutions are currently out of scope.
+* **Curated Documentation Focus:** AgentWiki is a local search layer for curated OpenAPI specs and Markdown guides. It does not parse source code ASTs, extract function signatures, or understand repository code logic.
+* **No Remote `$ref` Resolution:** The OpenAPI parser handles inline JSON schemas. Remote and external `$ref` references are not resolved.
+* **No Hard Output Truncation:** `agentwiki_read` returns the full page or requested section. If a documentation section is long, the tool returns the entire section without artificial clipping.
 * **Prototype Status:** Designed for testing whether local, schema-structured documentation improves agent accuracy compared to broad codebase searches.
 
 ---
 
 ## Architecture Invariants
 
-* **Zero Native C++ Compilation:** Uses Node.js native `node:sqlite` (`DatabaseSync`). Installs instantaneously without `python`, `gcc`, or `node-gyp`.
+* **Zero Native C++ Compilation:** Uses Node.js native `node:sqlite` (`DatabaseSync`). Installs without `python`, `gcc`, or `node-gyp`.
 * **Deterministic Rebuilds:** If `.agentwiki/index.db` is deleted or ignored, running `agentwiki compile` or launching `agentwiki serve` deterministically rebuilds the index from `.agentwiki/pages/*.md`.
 * **Non-Destructive IDE Integration:** Tolerates comments and trailing commas in `.cursor/mcp.json` and `.mcp.json`. Automatically generates `.bak` backups on corrupted configurations to prevent wiping developer configs.
-* **Token Budget Guard:** Enforces $< 400$ tokens per atomic page to preserve AI reasoning bandwidth.
 
 ---
 
