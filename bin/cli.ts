@@ -23,14 +23,14 @@ const program = new Command();
 program
   .name('agentwiki')
   .description('Agent-Native Knowledge Engine & Local MCP Server')
-  .version('0.3.0');
+  .version('0.4.0');
 
 // Command: init
 program
   .command('init [dir]')
   .description('Initialize AgentWiki in the current project and configure Cursor/Claude Code')
   .action((dir) => {
-    renderBanner('0.3.0');
+    renderBanner('0.4.0');
     console.log();
 
     const targetDir = dir ? path.resolve(dir) : process.cwd();
@@ -182,7 +182,7 @@ program
     const proposals = storage.listProposals();
     const pendingProposals = proposals.filter((p) => p.status === 'pending');
 
-    renderBanner('0.3.0');
+    renderBanner('0.4.0');
     console.log();
 
     const categoryCounts: Record<string, number> = {};
@@ -302,7 +302,7 @@ program
   .description('Audit agent instruction files (CLAUDE.md, .cursor/rules, AGENTS.md, etc.) for broken paths and stale commands')
   .action((dir) => {
     const targetDir = dir ? path.resolve(dir) : process.cwd();
-    renderBanner('0.3.0');
+    renderBanner('0.4.0');
     console.log();
 
     console.log(` ${badges.info()} ${colors.zinc('Auditing agent rule files in:')} ${colors.white(targetDir)}...\n`);
