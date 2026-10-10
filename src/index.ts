@@ -6,3 +6,4 @@ export { parseOpenApi } from './parsers/openapi.js';
 export { parseMarkdownDoc } from './parsers/markdown.js';
 export { createAgentWikiMcpServer, startStdioServer } from './mcp/server.js';
 export { setupIde, type IdeSetupResult } from './setup/ide.js';
+export { scanWorkspaceRules, type DoctorResult, type DoctorIssue } from './core/doctor.js';

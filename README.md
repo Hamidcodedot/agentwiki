@@ -30,7 +30,7 @@ AgentWiki is a high-speed, local-first compiler and Model Context Protocol (MCP)
  │                        │ ───> │                         │ ───> │                       │
  │  • package.json / repo │      │  • Strips fluff         │      │  • .agentwiki/pages/  │
  │  • openapi.json/yaml   │      │  • < 400 tokens / card  │      │  • SQLite FTS5 Index  │
- │  • docs/*.md           │      │  • SHA-256 currency sync│      │  • Relational Graph   │
+ │  • docs/*.md           │      │  • Auto currency sync   │      │  • Relational Graph   │
  └────────────────────────┘      └─────────────────────────┘      └───────────┬───────────┘
                                                                               │
                                                                    Stdio MCP  │ Sub-15ms
@@ -46,8 +46,8 @@ AgentWiki is a high-speed, local-first compiler and Model Context Protocol (MCP)
                                                                   └───────────────────────┘
 ```
 
-* **70%+ Token Reduction:** Deconstructs bloated specifications into isolated, machine-verifiable cards under 400 tokens each.
-* **Codebase Manifest & Topology Scanner:** Automatically maps project entrypoints, toolchain scripts, dependencies, and directory topology into `architecture_overview.md` with SHA-256 currency sync.
+ * **70%+ Token Reduction:** Deconstructs bloated specifications into isolated, machine-verifiable cards under 400 tokens each.
+* **Codebase Manifest & Topology Scanner:** Automatically maps project entrypoints, toolchain scripts, dependencies, and directory topology into `architecture_overview.md` with automatic currency sync on server start.
 * **Sub-15ms Local BM25 Search:** Powered by Node.js 24 native `node:sqlite` with FTS5. Zero external vector databases, zero embedding costs, and zero native C++ compilation (`node-gyp`).
 * **Git-First Ground Truth:** All knowledge entities are committed as human-readable Markdown files with YAML frontmatter in `.agentwiki/pages/*.md`.
 * **Fresh Checkout Self-Healing:** The SQLite database is safely excluded from Git to prevent binary merge conflicts. On a fresh `git clone`, AgentWiki automatically rehydrates the search index from Markdown in $< 30\text{ ms}$.
@@ -210,16 +210,16 @@ npx @hamidshahid/agentwiki review --approve-all
 
 ## Empirical Benchmark
 
-Evaluated against a real-world Stripe-grade payments API specification (8,674 characters) and production authentication documentation:
+Evaluated against a Stripe-grade payments API specification (8,674 characters, ~2,169 estimated tokens) and production authentication documentation:
 
-| Metric | Condition A (Raw Docs in Context) | Condition B (AgentWiki MCP) | Measured Impact |
+| Metric | Condition A (Raw Docs Dump) | Condition B (AgentWiki Local MCP) | Measured Result |
 | :--- | :--- | :--- | :--- |
-| **Token Ingestion Footprint** | 2,169 tokens / query | 632 tokens / query | **70.9% Token Reduction** |
-| **BM25 Search Retrieval** | Linear scan across prompt | 7.16 ms | **Sub-10ms Instant Lookup** |
-| **Total MCP Cycle Time** | 800+ ms (Vector Search) | 58.36 ms | **13x Faster Retrieval** |
-| **Cost per 1,000 Agent Queries** | \$6.51 | \$1.90 | **71% Cost Reduction** |
-| **Ground Truth Invariant Accuracy** | 50% (Missed error guards) | 100% (Passed all guards) | **Zero Hallucination** |
-| **Ground Truth Poisoning Defense** | Unvetted direct mutation | Human-in-the-loop review | **100% Invariant Integrity** |
+| **Prompt Ingestion Size** | ~2,169 tokens per prompt | ~632 tokens (Search + Read) | **70.9% Token Reduction** |
+| **FTS5 BM25 Search Latency** | N/A (Linear text scan) | 7.16 ms | **Sub-10ms Lookup** |
+| **Atomic Page Read Latency** | N/A (Full file read) | 50.19 ms | **Targeted Contract Retrieval** |
+| **Staging Safety** | Direct file mutation | Staged in `.agentwiki/proposals/` | **Human-in-the-Loop Review** |
+
+*Note: Token counts are estimated using the standard 4 characters per token heuristic. Latencies measured on Node.js native `node:sqlite` FTS5.*
 
 ---
 
@@ -229,9 +229,18 @@ Evaluated against a real-world Stripe-grade payments API specification (8,674 ch
 | :--- | :--- | :--- |
 | `init` | `agentwiki init [dir]` | Initializes `.agentwiki`, scans manifests/topology, configures IDEs, and updates `.gitignore`. |
 | `compile` | `agentwiki compile <source> [--prune]` | Compiles OpenAPI specs or Markdown docs into atomic cards and indexes them into SQLite FTS5. |
+| `doctor` | `agentwiki doctor [dir]` | Audits agent instruction files (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules`, etc.) for broken paths and stale scripts. |
 | `serve` | `agentwiki serve` | Launches the Model Context Protocol (MCP) server over Stdio. |
 | `status` | `agentwiki status` | Displays knowledge base entity metrics, categories, proposals, and engine state. |
 | `review` | `agentwiki review [--approve <id> \| --reject <id> \| --approve-all]` | Interactive CLI to inspect, approve, or reject staged agent proposals. |
+
+---
+
+## Known Scope & Limitations
+
+* **Curated Documentation & Spec Focus:** AgentWiki is a local search and context-compression layer for curated OpenAPI specs and Markdown guides. It does not parse full repository ASTs or extract code symbols.
+* **Inline OpenAPI Schemas:** The OpenAPI parser handles inline JSON schemas. Remote and external `$ref` resolutions are currently out of scope.
+* **Prototype Status:** Designed for testing whether local, schema-structured documentation improves agent accuracy compared to broad codebase searches.
 
 ---
 

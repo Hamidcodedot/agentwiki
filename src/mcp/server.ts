@@ -7,6 +7,10 @@ import { IndexerEngine } from '../core/indexer.js';
 import { syncManifestIfChanged } from '../core/compiler.js';
 import { PageCategorySchema } from '../core/types.js';
 
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Creates and configures the AgentWiki MCP Server with all 4 core tools.
  */
@@ -88,10 +92,11 @@ export function createAgentWikiMcpServer(
       let contentToReturn = page.content;
 
       if (section) {
-        const regex = new RegExp(`^##\\s+${section}[\\s\\S]*?(?=^##\\s+|$)`, 'im');
+        const safeSection = escapeRegExp(section);
+        const regex = new RegExp(`(?:^|\\r?\\n)(##\\s+${safeSection}[\\s\\S]*?)(?=\\r?\\n##\\s+|$)`, 'i');
         const match = page.content.match(regex);
-        if (match) {
-          contentToReturn = match[0].trim();
+        if (match && match[1]) {
+          contentToReturn = match[1].trim();
         } else {
           contentToReturn = `Section "${section}" not found in page "${id}". Available full content:\n\n${page.content}`;
         }
@@ -139,13 +144,25 @@ export function createAgentWikiMcpServer(
     'agentwiki_propose_update',
     'Stage a newly discovered fact, bug fix, or undocumented parameter with evidence for human review.',
     {
-      entity_id: z.string().describe('Entity ID being updated or created'),
+      entity_id: z.string().describe('Existing entity ID being updated with verified invariants'),
       claim: z.string().describe('Concise description of the discovery or fix'),
       evidence: z.string().describe('Terminal output, execution trace, or test proof'),
       patch: z.string().optional().describe('Proposed markdown content or patch'),
       author_agent: z.string().optional().default('claude-code').describe('Agent identifier'),
     },
     async ({ entity_id, claim, evidence, patch, author_agent }) => {
+      const page = storage.loadPage(entity_id);
+      if (!page) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error: Target entity "${entity_id}" does not exist in the knowledge base. Proposals can only be staged for existing entities. Use agentwiki_search to find valid entity IDs.`,
+            },
+          ],
+        };
+      }
+
       const propId = `prop_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
       storage.saveProposal({

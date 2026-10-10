@@ -8,6 +8,7 @@ import { IndexerEngine } from '../src/core/indexer.js';
 import { compileSource, syncManifestIfChanged } from '../src/core/compiler.js';
 import { setupIde, ensureGitignore } from '../src/setup/ide.js';
 import { startStdioServer } from '../src/mcp/server.js';
+import { scanWorkspaceRules } from '../src/core/doctor.js';
 import {
   colors,
   badges,
@@ -128,8 +129,11 @@ program
         ['Entities Created', result.entitiesCreated],
         ['Storage Location', '.agentwiki/pages/'],
         ['Search Index Engine', 'SQLite FTS5 (.agentwiki/index.db)'],
-        ['Token Compression', '60% – 80% TCR achieved'],
       ];
+
+      if (result.entitiesCreated > 0) {
+        cardEntries.push(['Density Budget', '< 400 tokens / card']);
+      }
 
       if (result.prunedCount > 0) {
         cardEntries.push(['Orphaned Entities Pruned', result.prunedCount]);
@@ -290,6 +294,45 @@ program
     console.log(`   ${colors.zinc('Approve single:')} ${colors.cyan('npx @hamidshahid/agentwiki review --approve <id>')}`);
     console.log(`   ${colors.zinc('Reject single:')}  ${colors.cyan('npx @hamidshahid/agentwiki review --reject <id>')}`);
     console.log(`   ${colors.zinc('Approve all:')}    ${colors.cyan('npx @hamidshahid/agentwiki review --approve-all')}\n`);
+  });
+
+// Command: doctor
+program
+  .command('doctor [dir]')
+  .description('Audit agent instruction files (CLAUDE.md, .cursor/rules, AGENTS.md, etc.) for broken paths and stale commands')
+  .action((dir) => {
+    const targetDir = dir ? path.resolve(dir) : process.cwd();
+    renderBanner('0.3.0');
+    console.log();
+
+    console.log(` ${badges.info()} ${colors.zinc('Auditing agent rule files in:')} ${colors.white(targetDir)}...\n`);
+    const result = scanWorkspaceRules(targetDir);
+
+    if (result.ruleFilesScanned.length === 0) {
+      console.log(` ${badges.warn()} ${colors.amber('No agent rule files found.')}`);
+      console.log(`       ${colors.zinc('Checked for:')} CLAUDE.md, AGENTS.md, .cursor/rules/, .claude/rules/, .agentwiki/pages/\n`);
+      return;
+    }
+
+    console.log(` ${badges.ok()} Found ${colors.bold(String(result.ruleFilesScanned.length))} rule file(s):`);
+    for (const file of result.ruleFilesScanned) {
+      console.log(`       - ${colors.zinc(file)}`);
+    }
+    console.log();
+
+    if (result.issues.length === 0) {
+      console.log(` ${badges.ok()} ${colors.bold(colors.emerald('All agent rule references verified.'))} Zero broken paths or stale commands.\n`);
+      return;
+    }
+
+    console.log(` ${badges.error()} Found ${colors.bold(colors.rose(String(result.issues.length)))} stale reference(s) in agent rules:\n`);
+    for (const issue of result.issues) {
+      const badge = issue.severity === 'error' ? badges.error() : badges.warn();
+      console.log(` ${badge} ${colors.bold(issue.ruleFile)}`);
+      console.log(`       ${colors.zinc('Ref:')}     ${colors.white(issue.reference)}`);
+      console.log(`       ${colors.zinc('Problem:')} ${issue.severity === 'error' ? colors.rose(issue.message) : colors.amber(issue.message)}`);
+      console.log();
+    }
   });
 
 program.parse(process.argv);

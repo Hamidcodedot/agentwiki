@@ -148,4 +148,51 @@ describe('AgentWiki MCP Server', () => {
     const current = storage.loadPage('stripe_checkout_sessions');
     expect(current?.content).not.toContain('Strictly 100 req/sec');
   });
+
+  it('safely handles special regex characters in agentwiki_read section without crashing', async () => {
+    // Add page with regex-sensitive section header
+    const pageWithSpecialHeader: AgentWikiPage = {
+      metadata: {
+        id: 'special_header_page',
+        name: 'Special Header Page',
+        category: 'guide',
+        tags: ['test'],
+        relations: { requires: [], supersedes: [], related: [] },
+        summary: 'Testing regex safety.',
+        updated_at: new Date().toISOString(),
+      },
+      content: '## Advanced (Beta) [v2.0]*+\nContent inside special header.\n\n## Next Steps\nDone.',
+    };
+    storage.savePage(pageWithSpecialHeader);
+    indexer.indexPage(pageWithSpecialHeader, storage.getPagePath('special_header_page'));
+
+    const res = await client.callTool({
+      name: 'agentwiki_read',
+      arguments: {
+        id: 'special_header_page',
+        section: 'Advanced (Beta) [v2.0]*+',
+      },
+    });
+
+    const text = (res.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain('Content inside special header');
+  });
+
+  it('rejects agentwiki_propose_update for nonexistent entity IDs with a clear error', async () => {
+    const res = await client.callTool({
+      name: 'agentwiki_propose_update',
+      arguments: {
+        entity_id: 'non_existent_entity_123',
+        claim: 'Impossible update on missing page',
+        evidence: 'Terminal trace',
+      },
+    });
+
+    const text = (res.content as Array<{ type: string; text: string }>)[0].text;
+    expect(text).toContain('Error: Target entity "non_existent_entity_123" does not exist');
+
+    // Verify no proposal was saved
+    const proposals = storage.listProposals();
+    expect(proposals.some((p) => p.entity_id === 'non_existent_entity_123')).toBe(false);
+  });
 });
